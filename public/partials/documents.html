@@ -1,0 +1,22 @@
+<h2>Manage Documents</h2>
+<p>The following documents are available.</p>
+<div>
+	<p ng-hide="documents.length > 0"><em>No items to display</em></p>
+	<table ng-show="documents.length > 0">
+		<tbody>
+		<tr ng-repeat="item in documents">
+			<td>{{item.location}}</td>
+			<td><button ng-click="deleteDocument(item)">Remove</button></td>
+		</tr>
+		</tbody>
+	</table>
+</div>
+<div>
+	<p>Add a new document</p>
+	<form id="documentForm" action="document.php" method="POST">
+		<input type="file" multiple file-upload>
+	</form>
+	<div ng-show="errors">
+		<p class="error" ng-repeat="error in errors">{{error.message}}</p>
+	</div>
+</div>

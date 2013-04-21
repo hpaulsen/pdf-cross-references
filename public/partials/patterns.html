@@ -1,0 +1,21 @@
+<h2>Manage Patterns</h2>
+<p>The following patterns are available.</p>
+<div>
+	<p ng-hide="patterns.length > 0"><em>No items to display</em></p>
+	<table ng-show="patterns.length > 0">
+		<tbody>
+		<tr ng-repeat="item in patterns">
+			<td>{{item.pattern}}</td>
+			<td><button ng-click="deletePattern(item)">Remove</button></td>
+		</tr>
+		</tbody>
+	</table>
+</div>
+<div>
+	<p>Add a new pattern</p>
+	<input type="text" ng-model="newPattern.pattern" placeholder="Enter pattern">
+	<button ng-click="saveNewPattern()">Add</button>
+	<div ng-show="errors">
+		<p class="error" ng-repeat="error in errors">{{error.message}}</p>
+	</div>
+</div>
