@@ -1,8 +1,11 @@
 <?php
+
 /**
- * Created by JetBrains PhpStorm.
- * User: hyrum
- * Date: 4/24/13
- * Time: 9:39 AM
- * To change this template use File | Settings | File Templates.
+ * RESTful document interface
  */
+
+require '../app/bootstrap.php';
+require '../app/DocumentDetail.php';
+
+$class = new DocumentDetail();
+$class->handle();
