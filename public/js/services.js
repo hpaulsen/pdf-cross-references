@@ -12,4 +12,10 @@ angular.module('myApp.services', ['ngResource'])
 	.factory('Document',function($resource){
 		return $resource('document.php');
 	})
+	.factory('Name',function($resource){
+		return $resource('name.php');
+	})
+	.factory('DocumentDetail',function($resource){
+		return $resource('document_detail.php');
+	})
 ;

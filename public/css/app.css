@@ -33,3 +33,24 @@
 	font-style: italic;
 	color: red;
 }
+
+tr:nth-child(even) {
+	background-color: #DDDDFF;
+}
+
+span.name {
+	margin: 5px;
+	padding-left: 7px;
+	padding-right: 7px;
+	background-color: yellow;
+	border-radius: 5px;
+}
+
+span.btnDelete {
+	font-weight: normal;
+}
+
+span.btnDelete:hover {
+	font-weight: bold;
+	cursor: pointer;
+}

@@ -6,6 +6,7 @@
 	<title>NIST PDF Cross-Reference Analyzer</title>
 	<link rel="stylesheet" href="css/app.css"/>
 	<link rel="stylesheet" href="lib/angular-ui/angular-ui.min.css"/>
+	<link rel="stylesheet" href="lib/jquery-ui-1.10.2.custom/css/ui-lightness/jquery-ui-1.10.2.custom.min.css"/>
 	<script src="lib/angular-ui/angular-ui-ieshiv.min.js"></script>
 </head>
 <body>
@@ -28,6 +29,7 @@
 <script src="js/directives.js"></script>
 <script src="lib/angular-ui/angular-ui.min.js"></script>
 <script src="lib/jquery-1.9.1.min.js"></script>
+<script src="lib/jquery-ui-1.10.2.custom/js/jquery-ui-1.10.2.custom.min.js"></script>
 <script src="lib/jquery-html5-upload-master/jquery.html5_upload.js"></script>
 </body>
 </html>

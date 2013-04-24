@@ -1,22 +1,56 @@
 <h2>Manage Documents</h2>
 <p>The following documents are available.</p>
 <div>
-	<p ng-hide="documents.length > 0"><em>No items to display</em></p>
-	<table ng-show="documents.length > 0">
+	<table>
+		<thead>
+		<tr>
+			<th>Action</th>
+			<th>Filename</th>
+			<th>Reference names</th>
+		</tr>
+		</thead>
+		<tfoot>
+		<tr>
+			<td>Upload new</td>
+			<td>
+				<form id="documentForm" action="document.php" method="POST">
+					<input type="file" multiple file-upload>
+				</form>
+			</td>
+			<td></td>
+		</tr>
+		</tfoot>
 		<tbody>
+		<tr ng-hide="documents.length > 0"><td colspan="3"><em>No items to display</em></td></tr>
 		<tr ng-repeat="item in documents">
-			<td>{{item.name}}</td>
 			<td><button ng-click="deleteDocument(item)">Remove</button></td>
+			<td><a href="serveDocument.php?id={{item.id}}" target="_blank">{{item.name}}</a> <button ng-click="selectDocument(item)" ng-help>?</button></td>
+			<td>
+				<span class="name" ng-repeat="name in item.names">{{name.name}} <span class="btnDelete" ng-click="deleteName(name)">x</span></span>
+				<div>
+					<input id="new_name_{{item.id}}" type="text" ng-model="item.newName.name" ng-blur="saveName(item.newName,this)" ng-enter="saveName(item.newName,this)">
+				</div>
+			</td>
 		</tr>
 		</tbody>
 	</table>
 </div>
-<div>
-	<p>Add a new document</p>
-	<form id="documentForm" action="document.php" method="POST">
-		<input type="file" multiple file-upload>
-	</form>
-	<div ng-show="errors">
-		<p class="error" ng-repeat="error in errors">{{error.message}}</p>
-	</div>
+<div ng-show="errors">
+	<p class="error" ng-repeat="error in errors">{{error.message}}</p>
+</div>
+<div id="documentDetailPopup" ng-controller="DocumentDetailController" ng-show="selectedDocument != null">
+	<table>
+		<thead>
+		<tr>
+			<th>Field</th>
+			<th>Value</th>
+		</tr>
+		</thead>
+		<tbody>
+		<tr ng-repeat="item in documentDetails">
+			<td>{{item.name}}</td>
+			<td>{{item.value}}</td>
+		</tr>
+		</tbody>
+	</table>
 </div>

@@ -31,7 +31,7 @@ class Pattern extends Rest
 
 		if (isset($data->id)){
 			// modify existing
-			$this->error('Modifying a pattern is not permitted. Create a new pattern and delete the old if needed.');
+			$this->error('Modifying a pattern is not permitted. Create a new pattern and delete the old if needed.',400);
 //			$stmt = $this->db->prepare('UPDATE '.$this->table.' SET pattern=:pattern WHERE id=:id');
 //			if ($stmt->execute(array('pattern'=>$data->pattern,'id'=>(int)$data->id))){
 //				return $data;
