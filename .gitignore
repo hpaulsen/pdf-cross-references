@@ -1,5 +1,5 @@
-db/sqlite/
-documents/
+db/sqlite/*.*
+documents/*.*
 .DS_Store
 
 .DS_Store
