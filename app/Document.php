@@ -180,11 +180,6 @@ EQL;
 	}
 
 	function delete(){
-		$data = json_decode(file_get_contents('php://input'));
-		if (!isset($data->source_file_id))
-			$this->error('Required member item "source_file_id" is missing. '.print_r($_SERVER,true),400);
-		if (!isset($data->referenced_file_id))
-
 		if (!isset($_GET['id']))
 			$this->error('Required GET parameter "id" is missing');
 		else {

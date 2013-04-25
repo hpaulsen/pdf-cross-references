@@ -19,6 +19,6 @@ angular.module('myApp.services', ['ngResource'])
 		return $resource('document_detail.php');
 	})
 	.factory('CrossReference',function($resource){
-		return $resource('cross_reference.php')
+		return $resource('cross_reference.php',{},{search: {method:'POST',isArray:true}})
 	})
 ;

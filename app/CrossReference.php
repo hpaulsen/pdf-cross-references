@@ -80,7 +80,9 @@ class CrossReference extends Rest {
 		// Load the pattern
 		$pattern = $this->getPattern($patternId);
 
-		return $this->matchPattern($pattern,$documentId,$patternId);
+		$result = $this->matchPattern($pattern,$documentId,$patternId);
+		return true;
+//		return $result;
 	}
 
 	protected function matchPattern($pattern,$documentId,$patternId){

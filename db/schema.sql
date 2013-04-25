@@ -85,7 +85,7 @@ CREATE TRIGGER IF NOT EXISTS delete_dependencies_of_file BEFORE DELETE ON file
 
 CREATE TRIGGER IF NOT EXISTS delete_dependencies_of_match_pattern BEFORE DELETE ON match_pattern
 	FOR EACH ROW BEGIN
-		DELETE FROM cross_reference WHERE OLD.id = cross_reference.pattern_id;
+		DELETE FROM cross_reference WHERE OLD.id = cross_reference.match_pattern_id;
 	END;
 
 -- -----------------------------------------------------

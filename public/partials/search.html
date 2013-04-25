@@ -23,7 +23,7 @@
 	</div>
 
 	<div style="float:left">
-		<h3>Current potential cross-references</h3>
+		<h3>Current matches</h3>
 		<div style="height: 300px; overflow:scroll">
 			<table ng-show="crossReferences.length > 0">
 				<thead>
@@ -37,14 +37,11 @@
 				<tr ng-repeat="crossReference in crossReferences">
 					<td>{{crossReference.matched_text}}</td>
 					<td>{{crossReference.context}}</td>
-					<td><button class="ui-icon ui-icon-close" ng-click="crossReference.$delete()">Delete</button></td>
+					<td><button class="ui-icon ui-icon-close" ng-click="deleteReference(crossReference)">Delete</button></td>
 				</tr>
 				</tbody>
 			</table>
 			<div ng-hide="crossReferences.length > 0" style="font-style:italic">No references found.</div>
-			<ul ng-show="crossReferences.length > 0">
-				<li ng-repeat="crossReference in crossReferences">{{crossReference.context}}</li>
-			</ul>
 		</div>
 	</div>
 
