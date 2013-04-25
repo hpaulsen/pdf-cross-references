@@ -89,6 +89,14 @@ CREATE TRIGGER IF NOT EXISTS delete_dependencies_of_match_pattern BEFORE DELETE 
 	END;
 
 -- -----------------------------------------------------
+-- Sample patterns
+-- -----------------------------------------------------
+
+INSERT OR IGNORE INTO `match_pattern` (`pattern`) VALUES ('/\bFIPS\s+\d{3}\b/s');
+INSERT OR IGNORE INTO `match_pattern` (`pattern`) VALUES ('/\bNIST\s+SP\s+\d{3}(\-\d*)?\b/s');
+INSERT OR IGNORE INTO `match_pattern` (`pattern`) VALUES ('/\bNIST\s+IR\s+\d{4}\b/s');
+
+-- -----------------------------------------------------
 -- Table `config`
 -- -----------------------------------------------------
 -- CREATE  TABLE IF NOT EXISTS `config` (

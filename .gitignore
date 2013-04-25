@@ -1,5 +1,5 @@
 db/sqlite/*.*
 documents/*.*
-.DS_Store
-
+documents/text/*.*
+library/pdf-reader-master/
 .DS_Store

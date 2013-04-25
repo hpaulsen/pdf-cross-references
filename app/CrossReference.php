@@ -81,7 +81,7 @@ class CrossReference extends Rest {
 		$pattern = $this->getPattern($patternId);
 
 		$result = $this->matchPattern($pattern,$documentId,$patternId);
-		return true;
+		return count($result);
 //		return $result;
 	}
 

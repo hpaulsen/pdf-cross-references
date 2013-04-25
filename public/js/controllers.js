@@ -127,22 +127,22 @@ angular.module('myApp.controllers', [])
 
 		$scope.beginSearch = function(docs,pattern){
 			var currentDocIndex = -1;
-			var cr = new CrossReference();
-			cr.$search({file_id:docs[0],pattern_id:pattern});
-//			var doNext = function(){
-//				currentDocIndex++;
-//				var currentDocId = docs[currentDocIndex];
-//				if (currentDocIndex < docs.length){
-//					var cr = new CrossReference();
-//					cr.$save({file_id:currentDocId,pattern_id:pattern},doNext);
-//				}
-//				else {
-//					console.log('here');
-//					$scope.$emit('selectedPattern',$scope.selectedPattern.id);
-//				}
-////					$scope.crossReferences = CrossReference.query({pattern_id:pattern});
-//			}
-//			doNext();
+//			var cr = new CrossReference();
+//			cr.$search({file_id:docs[0],pattern_id:pattern});
+			var doNext = function(){
+				currentDocIndex++;
+				var currentDocId = docs[currentDocIndex];
+				if (currentDocIndex < docs.length){
+					var cr = new CrossReference();
+					cr.$save({file_id:currentDocId,pattern_id:pattern},doNext);
+				}
+				else {
+					console.log('here');
+					$scope.$emit('selectedPattern',$scope.selectedPattern.id);
+				}
+//					$scope.crossReferences = CrossReference.query({pattern_id:pattern});
+			}
+			doNext();
 		}
 	}])
 ;
