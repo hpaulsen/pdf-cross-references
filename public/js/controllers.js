@@ -77,7 +77,6 @@ angular.module('myApp.controllers', [])
 			} else {
 				$scope.selectedDocument = null;
 			}
-			console.log('sending selectDocument ('+$scope.selectedDocument+')');
 			$rootScope.$broadcast('selectDocument',{id:$scope.selectedDocument});
 		}
 
@@ -103,14 +102,42 @@ angular.module('myApp.controllers', [])
 
 	.controller('DocumentDetailController',['$scope','$rootScope','DocumentDetail',function($scope,$rootScope,DocumentDetail){
 		$scope.$on('selectDocument',function(event,args){
-			console.log('received selectDocument ('+args.id+')');
-			console.log(args);
-			console.log(typeof args.id);
 			if (args.id != null){
 				$scope.documentDetails = DocumentDetail.query({file_id:args.id});
 			} else {
 				$scope.documentDetails = null;
 			}
 		});
+	}])
+
+	.controller('SearchController',['$scope','$q','Document','Pattern','CrossReference',function($scope,$q,Document,Pattern,CrossReference){
+
+		$scope.patterns = Pattern.query();
+		$scope.documents = Document.query();
+//		$scope.crossReferences = CrossReference.query();
+
+		$scope.deleteReference = function(reference){
+			console.log(reference);
+			reference.$delete({id:reference.id});
+		}
+
+		$scope.$watch('selectedPattern',function(id){
+			$scope.crossReferences = CrossReference.query({pattern_id:id});
+		});
+
+		$scope.beginSearch = function(docs,pattern){
+			var currentDocIndex = -1;
+			var doNext = function(){
+				currentDocIndex++;
+				var currentDocId = docs[currentDocIndex];
+				if (currentDocIndex < docs.length){
+					var cr = new CrossReference();
+					cr.$save({file_id:currentDocId,pattern_id:pattern},doNext);
+				}
+				else
+					$scope.crossReferences = CrossReference.query({pattern_id:pattern});
+			}
+			doNext();
+		}
 	}])
 ;

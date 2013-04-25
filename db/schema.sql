@@ -53,11 +53,12 @@ CREATE TABLE IF NOT EXISTS `metadata` (
 -- Table `cross_reference`
 -- -----------------------------------------------------
 CREATE  TABLE IF NOT EXISTS `cross_reference` (
-	`source_file_id` INT ,
+	`id` INTEGER PRIMARY KEY ASC AUTOINCREMENT ,
+	`source_file_id` INT NOT NULL ,
 	`referenced_file_id` INT ,
 	`match_pattern_id` INT UNSIGNED NOT NULL ,
+	`matched_text` TEXT NOT NULL ,
 	`context` TEXT NOT NULL ,
-	PRIMARY KEY (`source_file_id`, `referenced_file_id`) ,
 	CONSTRAINT `fk_cross_reference_source_file`
 		FOREIGN KEY (`source_file_id` )
 		REFERENCES `file` (`id` )
@@ -75,13 +76,17 @@ CREATE  TABLE IF NOT EXISTS `cross_reference` (
 		ON UPDATE CASCADE
 );
 
-CREATE TRIGGER IF NOT EXISTS delete_filenames_for_file BEFORE DELETE ON file
+CREATE TRIGGER IF NOT EXISTS delete_dependencies_of_file BEFORE DELETE ON file
 	FOR EACH ROW BEGIN
 		DELETE FROM filename WHERE OLD.id = filename.file_id;
 		DELETE FROM metadata WHERE OLD.id = metadata.file_id;
 		DELETE FROM cross_reference WHERE OLD.id = cross_reference.source_file_id OR OLD.id = cross_reference.referenced_file_id;
 	END;
 
+CREATE TRIGGER IF NOT EXISTS delete_dependencies_of_match_pattern BEFORE DELETE ON match_pattern
+	FOR EACH ROW BEGIN
+		DELETE FROM cross_reference WHERE OLD.id = cross_reference.pattern_id;
+	END;
 
 -- -----------------------------------------------------
 -- Table `config`

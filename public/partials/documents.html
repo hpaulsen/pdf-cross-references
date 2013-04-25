@@ -24,9 +24,9 @@
 		<tr ng-hide="documents.length > 0"><td colspan="3"><em>No items to display</em></td></tr>
 		<tr ng-repeat="item in documents">
 			<td><button ng-click="deleteDocument(item)">Remove</button></td>
-			<td><a href="serveDocument.php?id={{item.id}}" target="_blank">{{item.name}}</a> <button ng-click="selectDocument(item)" ng-help>?</button></td>
+			<td><a href="serveDocument.php?id={{item.id}}" target="_blank">{{item.name}}</a> <button ng-click="selectDocument(item)" style="float: right" ng-help>?</button></td>
 			<td>
-				<span class="name" ng-repeat="name in item.names">{{name.name}} <span class="btnDelete" ng-click="deleteName(name)">x</span></span>
+				<span class="ui-widget-content ui-helper-clearfix" ng-repeat="name in item.names">{{name.name}} <span class="btnDelete ui-icon ui-icon-close" style="display:inline-block" ng-click="deleteName(name)">x</span></span>
 				<div>
 					<input id="new_name_{{item.id}}" type="text" ng-model="item.newName.name" ng-blur="saveName(item.newName,this)" ng-enter="saveName(item.newName,this)">
 				</div>
@@ -38,7 +38,7 @@
 <div ng-show="errors">
 	<p class="error" ng-repeat="error in errors">{{error.message}}</p>
 </div>
-<div id="documentDetailPopup" ng-controller="DocumentDetailController" ng-show="selectedDocument != null">
+<div id="documentDetailPopup" ng-detail-dialog="selectedDocument" ng-controller="DocumentDetailController" ng-show="selectedDocument != null">
 	<table>
 		<thead>
 		<tr>

@@ -18,4 +18,7 @@ angular.module('myApp.services', ['ngResource'])
 	.factory('DocumentDetail',function($resource){
 		return $resource('document_detail.php');
 	})
+	.factory('CrossReference',function($resource){
+		return $resource('cross_reference.php')
+	})
 ;

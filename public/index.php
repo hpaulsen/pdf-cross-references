@@ -13,6 +13,7 @@
 <ul class="menu">
 	<li><a href="#/patterns">Patterns</a></li>
 	<li><a href="#/documents">Documents</a></li>
+	<li><a href="#/search">Search for cross references</a></li>
 </ul>
 
 <div ng-view></div>

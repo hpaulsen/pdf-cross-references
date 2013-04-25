@@ -52,6 +52,32 @@ angular.module('myApp.directives', [])
 		}
 	})
 
+	.directive('ngButton',function(){
+		return function(scope, element, attrs){
+			$(element).button({
+				icons: {
+					primary: attrs.ngButton
+				},
+				text: false
+			})
+		}
+	})
+
+	.directive('ngDetailDialog',function(){
+		return function(scope, element, attrs){
+			$(element).dialog();
+			scope.$watch('selectedDocument',function(newValue,oldValue){
+				if (newValue == null || typeof newValue == 'undefined')
+					$(element).dialog('close');
+				else
+					$(element).dialog('open');
+			});
+			$(element).dialog({
+				autoOpen: false
+			});
+		}
+	})
+
 	.directive('fileUpload', function() {
 	return function(scope, element, attrs) {
 		$(element).wrap('<div></div>');

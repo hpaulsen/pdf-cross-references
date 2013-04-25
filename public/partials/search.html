@@ -1,0 +1,51 @@
+<h2>Search for Cross References</h2>
+
+<div>
+	<h3>1. Select a pattern</h3>
+	<select ng-model="selectedPattern" ng-show="patterns.length>0">
+		<option ng-repeat="pattern in patterns" value="{{pattern.id}}">{{pattern.pattern}}</option>
+	</select>
+	<span ng-hide="patterns.length>0" style="font-style:italic">No patterns defined!</span>
+</div>
+
+<div>
+
+	<div style="width: 200px; float:left;">
+		<h3>2. Select documents to search</h3>
+		<select multiple size="20" ng-model="selectedDocuments" ng-disabled="selectedPattern==null">
+			<option ng-repeat="doc in documents" value="{{doc.id}}">{{doc.name}}</option>
+		</select>
+	</div>
+
+	<div style="width: 200px; float:left">
+		<h3>3. Begin search</h3>
+		<button ng-disabled="selectedDocuments.length==0" ng-click="beginSearch(selectedDocuments,selectedPattern)">Begin</button>
+	</div>
+
+	<div style="float:left">
+		<h3>Current potential cross-references</h3>
+		<div style="height: 300px; overflow:scroll">
+			<table ng-show="crossReferences.length > 0">
+				<thead>
+				<tr>
+					<th>Reference</th>
+					<th>Context</th>
+					<th></th>
+				</tr>
+				</thead>
+				<tbody>
+				<tr ng-repeat="crossReference in crossReferences">
+					<td>{{crossReference.matched_text}}</td>
+					<td>{{crossReference.context}}</td>
+					<td><button class="ui-icon ui-icon-close" ng-click="crossReference.$delete()">Delete</button></td>
+				</tr>
+				</tbody>
+			</table>
+			<div ng-hide="crossReferences.length > 0" style="font-style:italic">No references found.</div>
+			<ul ng-show="crossReferences.length > 0">
+				<li ng-repeat="crossReference in crossReferences">{{crossReference.context}}</li>
+			</ul>
+		</div>
+	</div>
+
+</div>

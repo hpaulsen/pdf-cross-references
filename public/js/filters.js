@@ -2,9 +2,11 @@
 
 /* Filters */
 
-angular.module('myApp.filters', []).
-  filter('interpolate', ['version', function(version) {
-    return function(text) {
-      return String(text).replace(/\%VERSION\%/mg, version);
-    }
-  }]);
+angular.module('myApp.filters', [])
+	.filter('pattern', ['Pattern', function(Pattern) {
+	    return function(text) {
+		    return text;
+		    return Pattern.query({id:id});
+	    }
+	}])
+;
