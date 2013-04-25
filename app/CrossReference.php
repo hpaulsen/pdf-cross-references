@@ -103,14 +103,14 @@ class CrossReference extends Rest {
 
 				foreach ($matches[0] as $match){
 					$text = $match[0];
-					$position = $match[1];
+					$position = $match[1]-1;
 					$context = trim($line);
 					if (strlen($context) > 100) {
 						$l = strlen($text);
 						$fair = floor((100-$l)/2); // if context were equal before and after...
-						$pre = min($fair,$position);
+						$beginning = min($fair,$position);
 //						$post = max($fair,100-$pre-$l);
-						$context = substr($context,$pre,100);
+						$context = substr($context,$beginning,100);
 					}
 					$resultArr[] = array(
 						'text'=>$text,

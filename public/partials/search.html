@@ -28,6 +28,7 @@
 			<table ng-show="crossReferences.length > 0">
 				<thead>
 				<tr>
+					<th>Document</th>
 					<th>Reference</th>
 					<th>Context</th>
 					<th></th>
@@ -35,6 +36,7 @@
 				</thead>
 				<tbody>
 				<tr ng-repeat="crossReference in crossReferences">
+					<td>{{crossReference.source_file_id|document:documents}}</td>
 					<td>{{crossReference.matched_text}}</td>
 					<td>{{crossReference.context}}</td>
 					<td><button class="ui-icon ui-icon-close" ng-click="deleteReference(crossReference)">Delete</button></td>
