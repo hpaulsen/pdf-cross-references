@@ -12,6 +12,10 @@ class Document extends Rest
 	protected $allowedExtensions;
 	/** @var string Set in constructor */
 	protected $documentDirectory;
+	/** @var string Set in constructor */
+	protected $documentTextDirectory;
+	/** @var string Set in constructor */
+	protected $cacheDirectory;
 
 	function get(){
 		if (isset($_GET['id'])){
@@ -63,7 +67,7 @@ class Document extends Rest
 							unlink($newName);
 							$this->error('Unable to save file to database. Error: '.$err[2]);
 						} else {
-							$txtFilename = $this->documentDirectory.'text/'.$maxId.'.txt';
+							$txtFilename = $this->documentTextDirectory.$maxId.'.txt';
 							switch ($extension){
 								case 'pdf':
 									if (!$this->parsePdf($newName,$txtFilename,$filename))
@@ -86,7 +90,7 @@ class Document extends Rest
 	protected function parsePdf($pdfFilename,$txtFilename,$uploadFilename){
 		$descriptorspec = array(
 			1 => array("file", $txtFilename, 'w'),  // stdout is a file that the child will write to
-			2 => array("file", $this->documentDirectory."error-output.txt", "a") // stderr is a file to write to
+			2 => array("file", $this->cacheDirectory."error-output.txt", "a") // stderr is a file to write to
 		);
 
 		$ruby = <<<EQL
@@ -122,7 +126,7 @@ EQL;
 	protected function parsePdfMetadata($pdfFilename,$txtFilename,$uploadFilename,$fileId){
 		$descriptorspec = array(
 			1 => array("pipe", 'w'),  // stdout is a pipe that the child will write to
-			2 => array("file", $this->documentDirectory."error-output.txt", "a") // stderr is a file to write to
+			2 => array("file", $this->cacheDirectory."error-output.txt", "a") // stderr is a file to write to
 		);
 
 		$ruby = <<<EQL
@@ -142,9 +146,9 @@ PDF::Reader.open(filename) do |reader|
 end
 EQL;
 
-		file_put_contents($this->documentDirectory.'command.rb',$ruby);
+		file_put_contents($this->cacheDirectory.'command.rb',$ruby);
 
-		$process = proc_open('ruby '.$this->documentDirectory.'command.rb', $descriptorspec, $pipes);
+		$process = proc_open('ruby '.$this->cacheDirectory.'command.rb', $descriptorspec, $pipes);
 
 		if (is_resource($process)) {
 			$result = stream_get_contents($pipes[1]);
@@ -191,7 +195,7 @@ EQL;
 				$stmt = $this->db->prepare('DELETE FROM '.$this->table.' WHERE id=:id');
 				if ($stmt->execute(array('id'=>$id))){
 					if (!unlink($location)) $this->error('Failed to delete file');
-					if (!unlink($this->documentDirectory.'text/'.$id.'.txt')) $this->error('Failed to delete text cache');
+					if (!unlink($this->documentTextDirectory.$id.'.txt')) $this->error('Failed to delete text cache');
 					return 'Deleted item '.$id;
 				} else {
 					$err = $stmt->errorInfo();
@@ -211,7 +215,9 @@ EQL;
 		$this->db = $db;
 		$this->table = 'file';
 		$this->allowedExtensions = array('pdf','txt');
-		$this->documentDirectory = dirname(__FILE__).'/../documents/';
+		$this->cacheDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR;
+		$this->documentDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentCacheFolder.DIRECTORY_SEPARATOR;
+		$this->documentTextDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentTextCacheFolder.DIRECTORY_SEPARATOR;
 	}
 }
 

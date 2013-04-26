@@ -1,5 +1,3 @@
-db/sqlite/*.*
-documents/*.*
-documents/text/*.*
+cache/*
 library/pdf-reader-master/
 .DS_Store

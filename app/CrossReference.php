@@ -86,7 +86,7 @@ class CrossReference extends Rest {
 	}
 
 	protected function matchPattern($pattern,$documentId,$patternId){
-		$filename = dirname(__FILE__).'/../documents/text/'.$documentId.'.txt';
+		$filename = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentTextCacheFolder.DIRECTORY_SEPARATOR.$documentId.'.txt';
 		if (!file_exists($filename)) $this->error('Error - could not locate parsed version of document ("'.$filename.'").');
 
 		$handle = fopen($filename,'r');
