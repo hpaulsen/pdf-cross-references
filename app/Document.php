@@ -1,6 +1,6 @@
 <?php
 
-require_once '../library/Rest.php';
+require_once Config::$libraryDirectory.DIRECTORY_SEPARATOR.'Rest.php';
 //require_once '../library/PDFreader/File/PDFreader.class.php';
 //require_once '../library/php-pdf-parser-master/pdf.php';
 

@@ -3,8 +3,8 @@
  * Serves an uploaded document to the user
  */
 
-require '../library/ResponseCode.php';
-require '../db/db.php';
+require 'bootstrap.php';
+require Config::$libraryDirectory.DIRECTORY_SEPARATOR.'ResponseCode.php';
 global $db;
 
 if (!isset($_GET['id'])) {

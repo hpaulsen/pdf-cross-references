@@ -4,8 +4,8 @@
  * RESTful document interface
  */
 
-require '../app/bootstrap.php';
-require '../app/DocumentDetail.php';
+require 'bootstrap.php';
+require Config::$appDirectory.DIRECTORY_SEPARATOR.'DocumentDetail.php';
 
 $class = new DocumentDetail();
 $class->handle();

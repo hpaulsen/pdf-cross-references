@@ -4,8 +4,8 @@
  * RESTful document name interface
  */
 
-require '../app/bootstrap.php';
-require '../app/Name.php';
+require 'bootstrap.php';
+require Config::$appDirectory.DIRECTORY_SEPARATOR.'Name.php';
 
 $class = new Name();
 $class->handle();

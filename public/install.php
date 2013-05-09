@@ -1,6 +1,6 @@
 <?php
 
-require '..'.DIRECTORY_SEPARATOR.'app'.DIRECTORY_SEPARATOR.'config.php';
+require 'localConfig.php';
 
 // Store test results
 $testResults = array();

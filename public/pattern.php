@@ -4,8 +4,8 @@
  * RESTful pattern interface
  */
 
-require '../app/bootstrap.php';
-require '../app/Pattern.php';
+require 'bootstrap.php';
+require Config::$appDirectory.DIRECTORY_SEPARATOR.'Pattern.php';
 
 $class = new Pattern();
 $class->handle();

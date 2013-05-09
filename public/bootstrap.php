@@ -1,6 +1,6 @@
 <?php
 
-require 'config.php';
+require 'localConfig.php';
 
 /**
  * Test for initialization
@@ -10,5 +10,4 @@ if (!file_exists(Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$installCom
 	exit;
 }
 
-require '../db/db.php';
-
+require Config::$dbDirectory.DIRECTORY_SEPARATOR.'db.php';

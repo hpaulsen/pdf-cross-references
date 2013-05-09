@@ -1,4 +1,4 @@
-<?php require '../app/bootstrap.php'; ?>
+<?php require 'bootstrap.php'; ?>
 <!doctype html>
 <html lang="en" ng-app="myApp">
 <head>
