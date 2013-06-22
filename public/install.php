@@ -5,44 +5,54 @@ require 'localConfig.php';
 // Store test results
 $testResults = array();
 // Each $testResults element should be an array with the following keys:
-const TITLE = 'title';
-const RESULT = 'result'; // 'unknown', true, or false
-const DETAIL = 'detail'; // an array of detailed messages
+//const TITLE = 'title';
+define('TITLE','title');
+//const RESULT = 'result'; // 'unknown', true, or false
+define('RESULT','result');
+//const DETAIL = 'detail'; // an array of detailed messages
+define('DETAIL','detail');
 // The following should be used to indicate that the status of a test cannot be determined because of a dependency
-const RESULT_DEPENDENCY_FAILED = 'unknown';
+//const RESULT_DEPENDENCY_FAILED = 'unknown';
+define('RESULT_DEPENDENCY_FAILED','unknown');
 
 // These are the tests
-const TEST_CONFIG_COMPLETE = 'configComplete';
+//const TEST_CONFIG_COMPLETE = 'configComplete';
+define('TEST_CONFIG_COMPLETE','configComplete');
 $testResults[TEST_CONFIG_COMPLETE] = array(
 	TITLE => 'Configuration complete',
 	RESULT => RESULT_DEPENDENCY_FAILED,
 	DETAIL => array(),
 );
-const TEST_EXEC_ALLOWED = 'execAllowed';
+//const TEST_EXEC_ALLOWED = 'execAllowed';
+define('TEST_EXEC_ALLOWED','execAllowed');
 $testResults[TEST_EXEC_ALLOWED] = array(
 	TITLE => 'PHP has permission to exec() function',
 	RESULT => RESULT_DEPENDENCY_FAILED,
 	DETAIL => array(),
 );
-const TEST_RUBY_INSTALLED = 'rubyInstalled';
+//const TEST_RUBY_INSTALLED = 'rubyInstalled';
+define('TEST_RUBY_INSTALLED','rubyInstalled');
 $testResults[TEST_RUBY_INSTALLED] = array(
 	TITLE => 'Ruby is installed',
 	RESULT => RESULT_DEPENDENCY_FAILED,
 	DETAIL => array(),
 );
-const TEST_RUBY_PDF_READER_INSTALLED = 'rubyPdfReaderInstalled';
+//const TEST_RUBY_PDF_READER_INSTALLED = 'rubyPdfReaderInstalled';
+define('TEST_RUBY_PDF_READER_INSTALLED','rubyPdfReaderInstalled');
 $testResults[TEST_RUBY_PDF_READER_INSTALLED] = array(
 	TITLE => 'The Ruby pdf-reader is installed',
 	RESULT => RESULT_DEPENDENCY_FAILED,
 	DETAIL => array(),
 );
-const TEST_CACHE_READY = 'cacheReady';
+//const TEST_CACHE_READY = 'cacheReady';
+define('TEST_CACHE_READY','cacheReady');
 $testResults[TEST_CACHE_READY] = array(
 	TITLE => 'The cache is ready',
 	RESULT => RESULT_DEPENDENCY_FAILED,
 	DETAIL => array(),
 );
-const TEST_DB_READY = 'dbReady';
+//const TEST_DB_READY = 'dbReady';
+define('TEST_DB_READY','dbReady');
 $testResults[TEST_DB_READY] = array(
 	TITLE => 'The database is initialized',
 	RESULT => RESULT_DEPENDENCY_FAILED,
@@ -98,7 +108,7 @@ if (getResult(TEST_CONFIG_COMPLETE) === true && getResult(TEST_EXEC_ALLOWED) ===
 	addResult(
 		TEST_RUBY_INSTALLED,
 		preg_match('/^ruby\s\d+(\.\d+)/',$rubyVersion) > 0,
-		'',
+		$rubyVersion,
 		'Install ruby.'
 	);
 }
@@ -122,7 +132,7 @@ if (getResult(TEST_CONFIG_COMPLETE) === true && getResult(TEST_EXEC_ALLOWED) ===
 		TEST_RUBY_PDF_READER_INSTALLED,
 		$rubyPdfReaderInstalled,
 		'Version: '.$rubyPdfReaderVersion,
-		'Install ruby pdf-reader (run "gem install pdf-reader" from the command line)'
+		'Install ruby pdf-reader (run "gem install pdf-reader" from the command line; server returned "'.$rubyPdfReaderVersion.'") or make sure that the gem and pdf-reader directories are included in the path in localConfig.php'
 	);
 }
 
@@ -168,7 +178,7 @@ if (getResult(TEST_CONFIG_COMPLETE) === true) {
 if (getResult(TEST_CONFIG_COMPLETE) === true && getResult(TEST_CACHE_READY) === true) {
 	$dbReady = false;
 	$dbError = '';
-	$schemaFile = dirname(__FILE__).DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'db'.DIRECTORY_SEPARATOR.'schema.sql';
+	$schemaFile = Config::$dbDirectory.DIRECTORY_SEPARATOR.'schema.sql';
 	if (file_exists($schemaFile)) {
 		$schema = file_get_contents($schemaFile);
 		if ($schema === false) {
