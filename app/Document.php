@@ -1,8 +1,6 @@
 <?php
 
 require_once Config::$libraryDirectory.DIRECTORY_SEPARATOR.'Rest.php';
-//require_once '../library/PDFreader/File/PDFreader.class.php';
-//require_once '../library/php-pdf-parser-master/pdf.php';
 
 class Document extends Rest
 {
@@ -50,7 +48,8 @@ class Document extends Rest
 			$this->error('Uploaded file exceeds limit of '.$maxSize);
 		}
 		foreach ($_FILES['user_file']['name'] as $index=>$filename){
-			$extension = end(explode('.',$filename));
+			$tmp = explode('.',$filename);
+			$extension = end($tmp);
 			if (!in_array($extension,$this->allowedExtensions)){
 				$this->error('File type "'.$extension.'" not allowed');
 			} else {
@@ -70,10 +69,8 @@ class Document extends Rest
 							$txtFilename = $this->documentTextDirectory.$maxId.'.txt';
 							switch ($extension){
 								case 'pdf':
-									if (!$this->parsePdf($newName,$txtFilename,$filename))
+									if (!$this->parsePdf($newName,$this->documentTextDirectory,$maxId))
 										$this->error('Unable to extract text of '.$filename.'.');
-									if (!$this->parsePdfMetadata($newName,$this->documentDirectory.'text/'.$maxId.'m.txt',$filename,$maxId))
-										$this->error('Unable to extract metadata of '.$filename.'.');
 									break;
 								case 'txt':
 									if (!copy($newName,$txtFilename))
@@ -87,12 +84,9 @@ class Document extends Rest
 		}
 	}
 
-	protected function parsePdf($pdfFilename,$txtFilename,$uploadFilename){
-		$descriptorspec = array(
-			1 => array("file", $txtFilename, 'w'),  // stdout is a file that the child will write to
-			2 => array("file", $this->cacheDirectory."error-output.txt", "a") // stderr is a file to write to
-		);
-
+	protected function parsePdf($pdfFilename,$txtDirectory,$filename){
+		if ($txtDirectory[strlen($txtDirectory)-1] !== DIRECTORY_SEPARATOR)
+			$txtDirectory .= DIRECTORY_SEPARATOR;
 		$ruby = <<<EQL
 #!/usr/bin/env ruby
 # coding: utf-8
@@ -102,69 +96,42 @@ class Document extends Rest
 require 'rubygems'
 require 'pdf/reader'
 
-filename = "$pdfFilename"
+pdfFilename = "$pdfFilename"
+txtFilename = "$txtDirectory$filename"
+pageCount = 0
 
-PDF::Reader.open(filename) do |reader|
-  reader.pages.each do |page|
-    puts page.text
-  end
+PDF::Reader.open(pdfFilename) do |reader|
+	puts reader.info.inspect
+	reader.pages.each do |page|
+		pageCount = pageCount + 1
+		txtFile = File.open(txtFilename+"_#{pageCount}.txt","w");
+		txtFile.puts page.text
+		txtFile.close
+	end
 end
 EQL;
-
 		file_put_contents($this->documentDirectory.'command.rb',$ruby);
+		$command = 'ruby '.$this->documentDirectory.'command.rb';
 
-		$process = proc_open('ruby '.$this->documentDirectory.'command.rb', $descriptorspec, $pipes);
-
-		if (is_resource($process)) {
-			$return_value = proc_close($process);
-			return $return_value > -1;
-		} else {
-			$this->error('Unable to allocate required resource');
-		}
-	}
-
-	protected function parsePdfMetadata($pdfFilename,$txtFilename,$uploadFilename,$fileId){
 		$descriptorspec = array(
 			1 => array("pipe", 'w'),  // stdout is a pipe that the child will write to
 			2 => array("file", $this->cacheDirectory."error-output.txt", "a") // stderr is a file to write to
 		);
-
-		$ruby = <<<EQL
-#!/usr/bin/env ruby
-# coding: utf-8
-
-# Extract metadata only
-
-require 'rubygems'
-require 'pdf/reader'
-
-filename = "$pdfFilename"
-
-PDF::Reader.open(filename) do |reader|
-  puts reader.info.inspect
-#  puts reader.metadata.inspect
-end
-EQL;
-
-		file_put_contents($this->cacheDirectory.'command.rb',$ruby);
-
-		$process = proc_open('ruby '.$this->cacheDirectory.'command.rb', $descriptorspec, $pipes);
+		$process = proc_open($command, $descriptorspec, $pipes);
 
 		if (is_resource($process)) {
+			// Store the pdf info in the metadata table
 			$result = stream_get_contents($pipes[1]);
 			$result = $this->parsePdfInfoString($result);
 			fclose($pipes[1]);
 			$return_value = proc_close($process);
-
-			// Store the pdf info in the metadata table
 			$stmt = $this->db->prepare('INSERT INTO `metadata` (`file_id`, `name`, `value`) VALUES (:file_id, :name, :value)');
 			foreach ($result as $key=>$value){
-				if (!$stmt->execute(array('file_id'=>$fileId,'name'=>$key,'value'=>$value))){
+				if (!$stmt->execute(array('file_id'=>$filename,'name'=>$key,'value'=>$value))){
 					$err = $stmt->errorInfo();
 					$this->error('Error saving pdf info: "'.$err[2].'".');
 				}
 			}
-
 			return $return_value > -1;
 		} else {
 			$this->error('Unable to allocate required resource');
@@ -195,7 +162,11 @@ EQL;
 				$stmt = $this->db->prepare('DELETE FROM '.$this->table.' WHERE id=:id');
 				if ($stmt->execute(array('id'=>$id))){
 					if (!unlink($location)) $this->error('Failed to delete file');
-					if (!unlink($this->documentTextDirectory.$id.'.txt')) $this->error('Failed to delete text cache');
+					$i=1;
+					while (file_exists($filename=$this->documentTextDirectory.$id.'_'.$i.'.txt')){
+						if (!unlink($filename)) $this->error('Failed to delete text cache for page '.$i.'. Stopping.');
+						$i++;
+					}
 					return 'Deleted item '.$id;
 				} else {
 					$err = $stmt->errorInfo();

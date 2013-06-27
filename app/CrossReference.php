@@ -91,7 +91,9 @@ class CrossReference extends Rest {
 
 		$handle = fopen($filename,'r');
 
-		$prevLine = '';
+		$prevLine1 = '';
+		$prevLine2 = '';
+		$prevLine3 = '';
 		$resultArr = array();
 		while (!feof($handle)){
 			// Search the given line for the pattern
@@ -104,7 +106,7 @@ class CrossReference extends Rest {
 				foreach ($matches[0] as $match){
 					$text = $match[0];
 					$position = $match[1]-1;
-					$context = trim($line);
+					$context = $prevLine3.' '.$prevLine2.' '.$prevLine1.' '.$line;
 					if (strlen($context) > 100) {
 						$l = strlen($text);
 						$fair = floor((100-$l)/2); // if context were equal before and after...
@@ -122,6 +124,11 @@ class CrossReference extends Rest {
 						$this->error('Error saving reference: '.$err[2]);
 					}
 				}
+			}
+			if (strlen($line)>2){
+				$prevLine3 = $prevLine2;
+				$prevLine2 = $prevLine1;
+				$prevLine1 = $line;
 			}
 		}
 		return $resultArr;
