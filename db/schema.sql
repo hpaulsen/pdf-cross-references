@@ -4,7 +4,8 @@
 -- -----------------------------------------------------
 CREATE  TABLE IF NOT EXISTS `file` (
 	`id` INTEGER PRIMARY KEY ASC,
-	`name` TEXT,
+	`filename` TEXT,
+	`doc_id` TEXT,
 	`location` TEXT
 );
 
@@ -55,10 +56,12 @@ CREATE TABLE IF NOT EXISTS `metadata` (
 CREATE  TABLE IF NOT EXISTS `cross_reference` (
 	`id` INTEGER PRIMARY KEY ASC AUTOINCREMENT ,
 	`source_file_id` INT NOT NULL ,
+	`page_number` INT NOT NULL ,
 	`referenced_file_id` INT ,
 	`match_pattern_id` INT UNSIGNED NOT NULL ,
 	`matched_text` TEXT NOT NULL ,
 	`context` TEXT NOT NULL ,
+	`reference_type` INT ,
 	CONSTRAINT `fk_cross_reference_source_file`
 		FOREIGN KEY (`source_file_id` )
 		REFERENCES `file` (`id` )

@@ -42,17 +42,30 @@ class Document extends Rest
 			if (is_array($row) && isset($row['maxId']))
 				$maxId = $row['maxId'];
 		}
-		$stmt = $this->db->prepare('INSERT INTO '.$this->table.' (id,name,location) VALUES (:id, :name, :location)');
+		$stmt = $this->db->prepare('INSERT INTO '.$this->table.' (id,filename,doc_id,location) VALUES (:id, :filename, :docId, :location)');
 		if (!isset($_FILES['user_file']) && $_SERVER['CONTENT_LENGTH'] > 0){
 			$maxSize = ini_get('post_max_size');
 			$this->error('Uploaded file exceeds limit of '.$maxSize);
 		}
-		foreach ($_FILES['user_file']['name'] as $index=>$filename){
+		foreach ($_FILES['user_file']['filename'] as $index=>$filename){
 			$tmp = explode('.',$filename);
 			$extension = end($tmp);
 			if (!in_array($extension,$this->allowedExtensions)){
 				$this->error('File type "'.$extension.'" not allowed');
 			} else {
+				// Try to determine the publication code
+				$pubName = '';
+				if (preg_match('/SP[\s\.]?(\d{3,4}-\d{2,3})/i',$filename,$matches)){
+					// NIST Special Publication
+					$pubName = 'NIST SP '.$matches[1];
+				} elseif (preg_match('/FIPS[^\d]*(\d{2,4}(-\d)?)/i',$filename,$matches)){
+					// FIPS publication
+					$pubName = 'FIPS '.$matches[1];
+				} elseif (preg_match('/IR[^\d]*(\d{4})/i',$filename,$matches)){
+					// NIST IR publication
+					$pubName = 'NIST IR '.$matches[1];
+				}
+
 				$maxId++;
 				$newName = $this->documentDirectory.$maxId.'.'.$extension;
 				if ($_FILES['user_file']['error'][$index]) {
@@ -61,7 +74,7 @@ class Document extends Rest
 					if (!move_uploaded_file($_FILES['user_file']['tmp_name'][$index],$newName))
 						$this->error('File upload of "'.$filename.'" failed');
 					else {
-						if (!$stmt->execute(array('id'=>$maxId,'name'=>$filename,'location'=>$newName))){
+						if (!$stmt->execute(array('id'=>$maxId,'filename'=>$filename,'docId'=>$pubName,'location'=>$newName))){
 							$err = $stmt->errorInfo();
 							unlink($newName);
 							$this->error('Unable to save file to database. Error: '.$err[2]);
@@ -92,6 +105,8 @@ class Document extends Rest
 # coding: utf-8
 
 # Extract all text from a single PDF
+# PDF text is saved as individual files with page number, e.g. filename_1.txt, filename_2.txt, etc (not zero-indexed)
+# PDF metadata is sent back to stdout (or whatever the ruby terminology is...)
 
 require 'rubygems'
 require 'pdf/reader'
@@ -112,7 +127,6 @@ end
 EQL;
 		file_put_contents($this->documentDirectory.'command.rb',$ruby);
 		$command = 'ruby '.$this->documentDirectory.'command.rb';
-
 		$descriptorspec = array(
 			1 => array("pipe", 'w'),  // stdout is a pipe that the child will write to
 			2 => array("file", $this->cacheDirectory."error-output.txt", "a") // stderr is a file to write to
@@ -120,7 +134,9 @@ EQL;
 		$process = proc_open($command, $descriptorspec, $pipes);
 
 		if (is_resource($process)) {
+
 			// Store the pdf info in the metadata table
+
 			$result = stream_get_contents($pipes[1]);
 			$result = $this->parsePdfInfoString($result);
 			fclose($pipes[1]);
@@ -132,6 +148,17 @@ EQL;
 					$this->error('Error saving pdf info: "'.$err[2].'".');
 				}
 			}
+
+			// search for cross-references
+
+			$i = 1;
+			$pattern = '//si';
+			while (file_exists($pdfPageFile=$txtDirectory.$filename.'_'.$i.'.txt')){
+				if (false !== ($text = file_get_contents($pdfPageFile))){
+				}
+				$i++;
+			}
+
 			return $return_value > -1;
 		} else {
 			$this->error('Unable to allocate required resource');
@@ -185,7 +212,7 @@ EQL;
 		global $db;
 		$this->db = $db;
 		$this->table = 'file';
-		$this->allowedExtensions = array('pdf','txt');
+		$this->allowedExtensions = array('pdf');
 		$this->cacheDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR;
 		$this->documentDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentCacheFolder.DIRECTORY_SEPARATOR;
 		$this->documentTextDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentTextCacheFolder.DIRECTORY_SEPARATOR;
