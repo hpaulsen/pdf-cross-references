@@ -23,12 +23,13 @@
 	</div>
 
 	<div style="float:left">
-		<h3>Current matches</h3>
+		<h3>Current matches ({{crossReferences.length}})</h3>
 		<div style="height: 300px; overflow:scroll">
 			<table ng-show="crossReferences.length > 0">
 				<thead>
 				<tr>
 					<th>Document</th>
+					<th>Page</th>
 					<th>Reference</th>
 					<th>Context</th>
 					<th></th>
@@ -37,6 +38,7 @@
 				<tbody>
 				<tr ng-repeat="crossReference in crossReferences">
 					<td>{{crossReference.source_file_id|document:documents}}</td>
+					<td>{{crossReference.page_number}}</td>
 					<td>{{crossReference.matched_text}}</td>
 					<td>{{crossReference.context}}</td>
 					<td><button class="ui-icon ui-icon-close" ng-click="deleteReference(crossReference)">Delete</button></td>

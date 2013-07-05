@@ -57,6 +57,7 @@ CREATE  TABLE IF NOT EXISTS `cross_reference` (
 	`id` INTEGER PRIMARY KEY ASC AUTOINCREMENT ,
 	`source_file_id` INT NOT NULL ,
 	`page_number` INT NOT NULL ,
+	`page_is_glossary` INT , -- 0=false, 1=true, 2=page has the word "glossary" but reference may not be in glossary
 	`referenced_file_id` INT ,
 	`match_pattern_id` INT UNSIGNED NOT NULL ,
 	`matched_text` TEXT NOT NULL ,

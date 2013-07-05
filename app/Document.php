@@ -17,7 +17,18 @@ class Document extends Rest
 
 	function get(){
 		if (isset($_GET['id'])){
-			$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE id=:id');
+			$q = <<<EOQ
+SELECT
+	*,
+	(
+		SELECT MAX(page_is_glossary)
+		FROM cross_reference
+		WHERE source_file_id=o.id
+	) AS has_glossary
+	FROM '.$this->table.' AS o WHERE id=:id'
+EOQ;
+
+			$stmt = $this->db->prepare($q);
 			if ($stmt->execute(array('id'=>(int)$_GET['id']))){
 				return $stmt->fetch(PDO::FETCH_ASSOC);
 			} else {
@@ -47,7 +58,7 @@ class Document extends Rest
 			$maxSize = ini_get('post_max_size');
 			$this->error('Uploaded file exceeds limit of '.$maxSize);
 		}
-		foreach ($_FILES['user_file']['filename'] as $index=>$filename){
+		foreach ($_FILES['user_file']['name'] as $index=>$filename){
 			$tmp = explode('.',$filename);
 			$extension = end($tmp);
 			if (!in_array($extension,$this->allowedExtensions)){
@@ -82,7 +93,7 @@ class Document extends Rest
 							$txtFilename = $this->documentTextDirectory.$maxId.'.txt';
 							switch ($extension){
 								case 'pdf':
-									if (!$this->parsePdf($newName,$this->documentTextDirectory,$maxId))
+									if (!$this->parsePdf($newName,$maxId))
 										$this->error('Unable to extract text of '.$filename.'.');
 									break;
 								case 'txt':
@@ -97,9 +108,139 @@ class Document extends Rest
 		}
 	}
 
-	protected function parsePdf($pdfFilename,$txtDirectory,$filename){
-		if ($txtDirectory[strlen($txtDirectory)-1] !== DIRECTORY_SEPARATOR)
-			$txtDirectory .= DIRECTORY_SEPARATOR;
+
+	protected function parsePdf($pdfFilename,$fileId){
+		$metadata = $this->savePdfPages($pdfFilename,$fileId);
+
+		if ($metadata !== false) {
+			$this->saveMetadata($metadata,$fileId);
+
+			// search for cross-references
+
+			$pageNum = 1;
+			$text = '';
+			$prevPageText = '';
+			$stmt = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`page_number`,`page_is_glossary`,`match_pattern_id`,`matched_text`,`context`,`reference_type`) VALUES (:sourceFileId,:pageNum,:pageIsGlossary,:patternId,:matchedText,:context,:type)');
+			$docHasGlossary = false;
+//			$refNumPattern = '/[\D](\d{3,4}([\D]{1,10}\d+)?[A-Za-z]?)([^\d-\.]|(\.\s))/us';
+//			$refNumPattern = '/[\D](\d{3,4}([-\s\.]{1,2}\d+)?[A-Za-z]?)([^\d-\.]|(\.\s))/us';
+			$refNumPattern = '/[^\d-](\d{3,4})[\D]/us';
+			$resultArr = array();
+			while (file_exists($pdfPageFile=$this->documentTextDirectory.$fileId.'_'.$pageNum.'.txt')){
+				if (is_string($text) && mb_strlen($text,'UTF-8')>0)
+					$prevPageText = $text;
+				if (false !== ($text = file_get_contents($pdfPageFile))){
+
+					$text = $this->removeHeadFoot($text);
+
+					// search for "glossary"
+					$isInGlossary = ($docHasGlossary || $this->pageReferencesGlossary($text)) ? 2 : 0; // 0 for false, 1 for true, 2 for 'maybe, maybe not - the document has a glossary somewhere!'
+
+					// Search for references
+					if (false === ($result = preg_match_all($refNumPattern,$text,$matches,PREG_OFFSET_CAPTURE)))
+						$this->error('Error searching for pattern "'.$refNumPattern.'"');
+					elseif ($result > 0) {
+						foreach ($matches[1] as $match){
+							$matchedText = $match[0];
+							$position = $match[1]-1;
+							$context = $text;
+							if (mb_strlen($context,'UTF-8') > 100) {
+								$fair = max(0,$position-50); // if context were equal before and after...
+								if ($fair == 0){
+									$context = mb_substr($prevPageText,$fair,null,'UTF-8').mb_substr($context,0,100+$fair,'UTF-8');
+								} else {
+									$context = mb_substr($context,$fair,100,'UTF-8');
+								}
+							}
+							$resultArr[] = array(
+								'text'=>$text,
+								'context'=>$context,
+							);
+
+							$refDocId = preg_replace('/\s/','',$matchedText);
+
+							// Search for revision number
+							if (preg_match('/'.$matchedText.'[^\w\w]*[Rr][\w\s,-\.]*([\d]+)/us',$context,$matches2)){
+								$refDocId .= 'r'.$matches2[1];
+							}
+
+							// Search for NIST SP
+							if (preg_match('/[^A-Z]S(pecial)?\W*P(ublication)?[\W\d,-\.;\c\s]*'.$matchedText.'/us',$context)){
+								$refDocId = 'NIST SP '.$refDocId;
+							// Search for NIST IR
+							} elseif (preg_match('/IR\s*'.$matchedText.'/us',$context)){
+								$refDocId = 'FIPS '.$refDocId;
+							// Search for FIPS
+							} elseif (preg_match('/FIPS\s*(P(ub(lication)?)?)[\s\.-]*'.$matchedText.'/us',$context)){
+								$refDocId = 'FIPS '.$refDocId;
+							// Search for IEEE
+							} elseif (preg_match('/IEEE\s*'.$matchedText.'/us',$context)){
+								$refDocId = 'IEEE '.$refDocId;
+							// Search for Public Law
+							} elseif (preg_match('/Public Law '.$matchedText.'/us',$context)){
+								$refDocId = 'Public Law '.$refDocId;
+							// Search for OMB
+							} elseif (preg_match('/OMB.{1,12}([\w]+)\-'.$matchedText.'/us',$context,$matches2)){
+								$refDocId = 'OMB '.$matches2[1].'-'.$refDocId;
+							}
+
+							if (!$stmt->execute(array('sourceFileId'=>$fileId,'pageNum'=>$pageNum,'pageIsGlossary'=>$isInGlossary,'patternId'=>0,'matchedText'=>$refDocId,'context'=>$context))){
+								$err = $stmt->errorInfo();
+								$this->error('Error saving reference: '.$err[2]);
+							}
+						}
+					}
+				}
+				$pageNum++;
+			}
+
+			return $resultArr;
+		} else {
+			$this->error('Unable to allocate required resource');
+		}
+	}
+
+	/**
+	 * Search for the word "glossary" on the page
+	 *
+	 * @param $text
+	 *
+	 * @return bool
+	 */
+	protected function pageReferencesGlossary($text){
+		$glossaryPattern = '/glossary/usi';
+		if (false === ($result = preg_match_all($glossaryPattern,$text)))
+			$this->error('Error searching for pattern "'.$glossaryPattern.'"');
+		return $result > 0;
+	}
+
+	/**
+	 * Stores metadata in the database
+	 *
+	 * @param array $metadata
+	 * @param int $fileId
+	 */
+	protected function saveMetadata(array $metadata,$fileId){
+		$stmt = $this->db->prepare('INSERT INTO `metadata` (`file_id`, `name`, `value`) VALUES (:file_id, :name, :value)');
+		foreach ($metadata as $key=>$value){
+			if (!$stmt->execute(array('file_id'=>$fileId,'name'=>$key,'value'=>$value))){
+				$err = $stmt->errorInfo();
+				$this->error('Error saving pdf info: "'.$err[2].'".');
+			}
+		}
+	}
+
+	/**
+	 * Parses a pdf file and stores individual pages of text in the documentTextDirectory while returning the
+	 * metadata information from the pdf.
+	 *
+	 * @param string $pdfFilename The path to the pdf file to read
+	 * @param int $fileId The local id of the pdf file (will be used as a prefix in the documentTextDirectory)
+	 *
+	 * @return array|bool An array of key=>value pairs for the metadata of the pdf, or false on failure
+	 */
+	protected function savePdfPages($pdfFilename,$fileId){
+		$txtDirectory = $this->documentTextDirectory;
 		$ruby = <<<EQL
 #!/usr/bin/env ruby
 # coding: utf-8
@@ -112,7 +253,7 @@ require 'rubygems'
 require 'pdf/reader'
 
 pdfFilename = "$pdfFilename"
-txtFilename = "$txtDirectory$filename"
+txtFilename = "$txtDirectory$fileId"
 pageCount = 0
 
 PDF::Reader.open(pdfFilename) do |reader|
@@ -134,35 +275,37 @@ EQL;
 		$process = proc_open($command, $descriptorspec, $pipes);
 
 		if (is_resource($process)) {
-
-			// Store the pdf info in the metadata table
-
+			// Get the metadata
 			$result = stream_get_contents($pipes[1]);
 			$result = $this->parsePdfInfoString($result);
+//			$return_value = proc_close($process);
 			fclose($pipes[1]);
-			$return_value = proc_close($process);
-			$stmt = $this->db->prepare('INSERT INTO `metadata` (`file_id`, `name`, `value`) VALUES (:file_id, :name, :value)');
-			foreach ($result as $key=>$value){
-				if (!$stmt->execute(array('file_id'=>$filename,'name'=>$key,'value'=>$value))){
-					$err = $stmt->errorInfo();
-					$this->error('Error saving pdf info: "'.$err[2].'".');
-				}
-			}
-
-			// search for cross-references
-
-			$i = 1;
-			$pattern = '//si';
-			while (file_exists($pdfPageFile=$txtDirectory.$filename.'_'.$i.'.txt')){
-				if (false !== ($text = file_get_contents($pdfPageFile))){
-				}
-				$i++;
-			}
-
-			return $return_value > -1;
-		} else {
-			$this->error('Unable to allocate required resource');
+			return $result;
 		}
+		return false;
+	}
+
+	/**
+	 * Attempt to remove headers and footers
+	 * @param string $text
+	 * @return string
+	 */
+	protected function removeHeadFoot($text) {
+		$textArr = mb_split("\n",$text);
+		if (count($textArr)>2 && preg_match('/^\s{3}/',$textArr[0]) && mb_strlen($textArr[1],'UTF-8')+mb_strlen($textArr[2],'UTF-8')==0){
+			array_shift($textArr); // remove the first line
+			while (mb_strlen($textArr[0],'UTF-8')==0){
+				array_shift($textArr); // remove empty lines following the first
+			}
+		}
+		$l = count($textArr);
+		if (count($textArr)>2 && preg_match('/^\s{3}/',$textArr[$l-1]) && mb_strlen($textArr[$l-2],'UTF-8')+mb_strlen($textArr[$l-3],'UTF-8')==0){
+			array_pop($textArr); // remove the last line
+			while (mb_strlen($textArr[count($textArr)-1],'UTF-8')==0){
+				array_shift($textArr); // remove empty lines preceding the last
+			}
+		}
+		return implode("\n",$textArr);
 	}
 
 	protected function parsePdfInfoString($string){
@@ -216,6 +359,7 @@ EQL;
 		$this->cacheDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR;
 		$this->documentDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentCacheFolder.DIRECTORY_SEPARATOR;
 		$this->documentTextDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentTextCacheFolder.DIRECTORY_SEPARATOR;
+		mb_regex_encoding('UTF-8');
 	}
 }
 

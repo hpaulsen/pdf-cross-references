@@ -14,7 +14,7 @@ angular.module('myApp.filters', [])
 //			return text;
 			for (var i=0; i<documents.length; i++){
 				if (documents[i].id == text){
-					return documents[i].name;
+					return documents[i].doc_id;
 				}
 			}
 			/* else */
