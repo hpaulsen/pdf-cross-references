@@ -14,6 +14,8 @@ class Document extends Rest
 	protected $documentTextDirectory;
 	/** @var string Set in constructor */
 	protected $cacheDirectory;
+	/** @var int Set in constructor */
+	protected $contextLength;
 
 	function get(){
 		if (isset($_GET['id'])){
@@ -122,9 +124,8 @@ EOQ;
 			$prevPageText = '';
 			$stmt = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`page_number`,`page_is_glossary`,`match_pattern_id`,`matched_text`,`context`,`reference_type`) VALUES (:sourceFileId,:pageNum,:pageIsGlossary,:patternId,:matchedText,:context,:type)');
 			$docHasGlossary = false;
-//			$refNumPattern = '/[\D](\d{3,4}([\D]{1,10}\d+)?[A-Za-z]?)([^\d-\.]|(\.\s))/us';
-//			$refNumPattern = '/[\D](\d{3,4}([-\s\.]{1,2}\d+)?[A-Za-z]?)([^\d-\.]|(\.\s))/us';
-			$refNumPattern = '/[^\d-](\d{3,4})[\D]/us';
+			$refNumPattern = '/(\d{2,4}([\-\s\.]+\d{1,3})?[A-Za-z]?)/us';
+//			$refNumPattern = '/[^\d\-](\d{3,4}([\.\-\s]+\d{1,3})?[A-Za-z]?)[\D]/us';
 			$resultArr = array();
 			while (file_exists($pdfPageFile=$this->documentTextDirectory.$fileId.'_'.$pageNum.'.txt')){
 				if (is_string($text) && mb_strlen($text,'UTF-8')>0)
@@ -144,12 +145,14 @@ EOQ;
 							$matchedText = $match[0];
 							$position = $match[1]-1;
 							$context = $text;
-							if (mb_strlen($context,'UTF-8') > 100) {
-								$fair = max(0,$position-50); // if context were equal before and after...
-								if ($fair == 0){
-									$context = mb_substr($prevPageText,$fair,null,'UTF-8').mb_substr($context,0,100+$fair,'UTF-8');
+							if (mb_strlen($context,'UTF-8') > $this->contextLength) {
+								$fair = $position-floor($this->contextLength/2); // if context were equal before and after...
+								if ($fair < 0){
+									$pre = mb_substr($prevPageText,$fair,$this->contextLength,'UTF-8');
+//									$position += mb_strlen($pre,'UTF-8');
+									$context = $pre.mb_substr($context,0,$this->contextLength+$fair,'UTF-8');
 								} else {
-									$context = mb_substr($context,$fair,100,'UTF-8');
+									$context = mb_substr($context,$fair,$this->contextLength,'UTF-8');
 								}
 							}
 							$resultArr[] = array(
@@ -161,17 +164,17 @@ EOQ;
 
 							// Search for revision number
 							if (preg_match('/'.$matchedText.'[^\w\w]*[Rr][\w\s,-\.]*([\d]+)/us',$context,$matches2)){
-								$refDocId .= 'r'.$matches2[1];
+								$refDocId .= ' rev. '.$matches2[1];
 							}
 
 							// Search for NIST SP
-							if (preg_match('/[^A-Z]S(pecial)?\W*P(ublication)?[\W\d,-\.;\c\s]*'.$matchedText.'/us',$context)){
+							if (mb_strlen($refDocId)>=5 && preg_match('/\WS(pecial)?[^\w\d]*P(ublication(s)?)?[^\w\d]*([A-C\d\-\,\s])*'.$matchedText.'/us',$context)){
 								$refDocId = 'NIST SP '.$refDocId;
 							// Search for NIST IR
 							} elseif (preg_match('/IR\s*'.$matchedText.'/us',$context)){
 								$refDocId = 'FIPS '.$refDocId;
 							// Search for FIPS
-							} elseif (preg_match('/FIPS\s*(P(ub(lication)?)?)[\s\.-]*'.$matchedText.'/us',$context)){
+							} elseif (preg_match('/FIPS\s*(P(ub(lication(s)?)?)?)[\s\.\-\d\,]*'.$matchedText.'/us',$context)){
 								$refDocId = 'FIPS '.$refDocId;
 							// Search for IEEE
 							} elseif (preg_match('/IEEE\s*'.$matchedText.'/us',$context)){
@@ -180,9 +183,17 @@ EOQ;
 							} elseif (preg_match('/Public Law '.$matchedText.'/us',$context)){
 								$refDocId = 'Public Law '.$refDocId;
 							// Search for OMB
-							} elseif (preg_match('/OMB.{1,12}([\w]+)\-'.$matchedText.'/us',$context,$matches2)){
-								$refDocId = 'OMB '.$matches2[1].'-'.$refDocId;
+							} elseif (preg_match('/OMB[\w\s]{1,12}[\d\,\s\-]+(([\w\d]+)\-)?'.$matchedText.'/us',$context,$matches2)){
+//								$refDocId = 'OMB '.$matches2[1].'-'.$refDocId;
+								$refDocId = 'OMB '.$refDocId;
+								// Search for GAO
+							} elseif (preg_match('/GAO.{1,12}\-?'.$matchedText.'/us',$context)){
+								$refDocId = 'GAO '.$matchedText;
+								// Search for NSTISSI
+							} elseif (preg_match('/NSTISSI.{1,12}'.$matchedText.'\s*([A-Za-z\d]+\-[A-Za-z\d]+)/us',$context,$matches2)){
+								$refDocId = 'NSTISSI '.$matchedText.' '.$matches2[1];
 							}
+
 
 							if (!$stmt->execute(array('sourceFileId'=>$fileId,'pageNum'=>$pageNum,'pageIsGlossary'=>$isInGlossary,'patternId'=>0,'matchedText'=>$refDocId,'context'=>$context))){
 								$err = $stmt->errorInfo();
@@ -298,11 +309,14 @@ EQL;
 				array_shift($textArr); // remove empty lines following the first
 			}
 		}
+		while (mb_strlen($textArr[count($textArr)-1],'UTF-8')==0){
+			array_pop($textArr);
+		}
 		$l = count($textArr);
 		if (count($textArr)>2 && preg_match('/^\s{3}/',$textArr[$l-1]) && mb_strlen($textArr[$l-2],'UTF-8')+mb_strlen($textArr[$l-3],'UTF-8')==0){
 			array_pop($textArr); // remove the last line
 			while (mb_strlen($textArr[count($textArr)-1],'UTF-8')==0){
-				array_shift($textArr); // remove empty lines preceding the last
+				array_pop($textArr); // remove empty lines preceding the last
 			}
 		}
 		return implode("\n",$textArr);
@@ -360,6 +374,7 @@ EQL;
 		$this->documentDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentCacheFolder.DIRECTORY_SEPARATOR;
 		$this->documentTextDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentTextCacheFolder.DIRECTORY_SEPARATOR;
 		mb_regex_encoding('UTF-8');
+		$this->contextLength = 150;
 	}
 }
 
