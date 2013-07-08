@@ -124,7 +124,7 @@ EOQ;
 			$prevPageText = '';
 			$stmt = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`page_number`,`page_is_glossary`,`match_pattern_id`,`matched_text`,`context`,`reference_type`) VALUES (:sourceFileId,:pageNum,:pageIsGlossary,:patternId,:matchedText,:context,:type)');
 			$docHasGlossary = false;
-			$refNumPattern = '/(\d{2,4}([\-\s\.]+\d{1,3})?[A-Za-z]?)/us';
+			$refNumPattern = '/(\d{2,5}([\-\s\.\:]+\d{1,3})?[A-Za-z]?)/us';
 //			$refNumPattern = '/[^\d\-](\d{3,4}([\.\-\s]+\d{1,3})?[A-Za-z]?)[\D]/us';
 			$resultArr = array();
 			while (file_exists($pdfPageFile=$this->documentTextDirectory.$fileId.'_'.$pageNum.'.txt')){
@@ -161,6 +161,7 @@ EOQ;
 							);
 
 							$refDocId = preg_replace('/\s/','',$matchedText);
+							$refDocIdLength = mb_strlen($refDocId,'UTF-8');
 
 							// Search for revision number
 							if (preg_match('/'.$matchedText.'[^\w\w]*[Rr][\w\s,-\.]*([\d]+)/us',$context,$matches2)){
@@ -168,13 +169,13 @@ EOQ;
 							}
 
 							// Search for NIST SP
-							if (mb_strlen($refDocId)>=5 && preg_match('/\WS(pecial)?[^\w\d]*P(ublication(s)?)?[^\w\d]*([A-C\d\-\,\s])*'.$matchedText.'/us',$context)){
+							if ($refDocIdLength>=5 && preg_match('/\WS(pec(ial)?)?[^\w\d]*P(ub(l(ication(s)?)?)?)?[^\w\d]*([A-C\d\-\,\s])*'.$matchedText.'\W/us',$context)){
 								$refDocId = 'NIST SP '.$refDocId;
 							// Search for NIST IR
 							} elseif (preg_match('/IR\s*'.$matchedText.'/us',$context)){
 								$refDocId = 'FIPS '.$refDocId;
 							// Search for FIPS
-							} elseif (preg_match('/FIPS\s*(P(ub(lication(s)?)?)?)[\s\.\-\d\,]*'.$matchedText.'/us',$context)){
+							} elseif (preg_match('/FIPS\s*(P(ub(lication(s)?)?)?)?[\s\.\-\d\,]*'.$matchedText.'/us',$context)){
 								$refDocId = 'FIPS '.$refDocId;
 							// Search for IEEE
 							} elseif (preg_match('/IEEE\s*'.$matchedText.'/us',$context)){
@@ -183,15 +184,22 @@ EOQ;
 							} elseif (preg_match('/Public Law '.$matchedText.'/us',$context)){
 								$refDocId = 'Public Law '.$refDocId;
 							// Search for OMB
-							} elseif (preg_match('/OMB[\w\s]{1,12}[\d\,\s\-]+(([\w\d]+)\-)?'.$matchedText.'/us',$context,$matches2)){
-//								$refDocId = 'OMB '.$matches2[1].'-'.$refDocId;
-								$refDocId = 'OMB '.$refDocId;
+							} elseif (preg_match_all('/OMB\)?[\w\s]{1,12}([\d\w\s\-]+\,)*([\d\w]+\-)?'.$matchedText.'/us',$context,$matches2)){
+//							} elseif (preg_match_all('/OMB\)?[\w\s]{1,12}[\d\,\s\-]+(([\w\d]+)\-)?'.$matchedText.'/us',$context,$matches2)){
+//								error_log(print_r($matches2,true));
+								if (mb_strlen($matches2[2][0],'UTF-8')>0)
+									$refDocId = 'OMB '.$matches2[2][0].$refDocId;
+								else
+									$refDocId = 'OMB '.$refDocId;
 								// Search for GAO
 							} elseif (preg_match('/GAO.{1,12}\-?'.$matchedText.'/us',$context)){
-								$refDocId = 'GAO '.$matchedText;
+								$refDocId = 'GAO '.$refDocId;
 								// Search for NSTISSI
 							} elseif (preg_match('/NSTISSI.{1,12}'.$matchedText.'\s*([A-Za-z\d]+\-[A-Za-z\d]+)/us',$context,$matches2)){
-								$refDocId = 'NSTISSI '.$matchedText.' '.$matches2[1];
+								$refDocId = 'NSTISSI '.$refDocId.' '.$matches2[1];
+								// Search for ISO/IEC
+							} elseif (preg_match('/ISO\/IEC '.$matchedText.'/us',$context)){
+								$refDocId = 'ISO/IEC '.$refDocId;
 							}
 
 
