@@ -106,10 +106,43 @@ angular.module('myApp.controllers', [])
 
 	.controller('SearchController',['$scope','$q','Document','CrossReference',function($scope,$q,Document,CrossReference){
 		$scope.documents = Document.query();
+
+		$scope.start = 0; $scope.count = 15;
+		var loadReferences = function(start){
+			$scope.start = start;
+			$scope.crossReferences = CrossReference.query({start:$scope.start,count:$scope.count});
+		}
+
+		loadReferences(0,15);
+
+		var tmp = CrossReference.count(function(){
+			$scope.crossReferenceCount = tmp[0].count;
+		});
 		$scope.deleteReference = function(reference){
 			reference.$delete({id:reference.id},function(){$scope.crossReferences = CrossReference.query({pattern_id:$scope.selectedPattern.id})});
 		}
-		$scope.crossReferences = CrossReference.query();
+
+		var lastPageStart = function(){
+			var numPages = Math.floor($scope.crossReferenceCount/$scope.count)+1;
+			var lastStart = numPages*$scope.count;
+			if (lastStart >= $scope.crossReferenceCount) lastStart -= $scope.count;
+			return lastStart;
+		}
+
+		$scope.first = function(){
+			loadReferences(0);
+		}
+		$scope.next = function(){
+			var start = Math.min($scope.start+$scope.count,lastPageStart());
+			loadReferences(start);
+		}
+		$scope.prev = function(){
+			var start = Math.max($scope.start-$scope.count,0);
+			loadReferences(start);
+		}
+		$scope.last = function(){
+			loadReferences(lastPageStart());
+		}
 	}])
 	.controller('ChartController',['$scope','$q','CrossReference',function($scope,$q,CrossReference){
 		$scope.crossReferences = CrossReference.query({summary:true});

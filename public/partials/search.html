@@ -24,9 +24,13 @@
 	<div style="float:left">
 -->
 	<div>
-		<h3>Current matches ({{crossReferences.length}} total)</h3>
+		<h3>Current matches</h3>
 		<div>
-
+			<button ng-click="first()" nist-button="ui-icon-seek-first">First
+			</button><button ng-click="prev()" nist-button="ui-icon-seek-prev">Back
+			</button><button ng-click="next()" nist-button="ui-icon-seek-next">Next
+			</button><button ng-click="last()" nist-button="ui-icon-seek-end">Last</button>
+			<span>Viewing {{start}} - {{start+count}} of {{crossReferenceCount}}</span>
 		</div>
 		<div style="height: 600px; overflow:scroll">
 			<table ng-show="crossReferences.length > 0">

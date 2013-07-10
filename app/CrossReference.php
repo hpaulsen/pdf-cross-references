@@ -6,7 +6,10 @@ class CrossReference extends Rest {
 	protected $table = 'cross_reference';
 
 	function get(){
-		if (isset($_GET['summary']) && $_GET['summary']==true){
+		if (isset($_GET['metadata']) && $_GET['metadata']==true){
+			$stmt = $this->db->prepare('SELECT COUNT(*) AS count FROM '.$this->table);
+			$params = null;
+		} elseif (isset($_GET['summary']) && $_GET['summary']==true){
 			$q = <<<EOS
 SELECT
 	f.doc_id AS source,
