@@ -12,7 +12,8 @@
 <body>
 <ul class="menu">
 	<li><a href="#/documents">Documents</a></li>
-	<li><a href="#/search">Search for cross references</a></li>
+	<li><a href="#/search">Cross references</a></li>
+	<li><a href="#/chart">Chart</a></li>
 </ul>
 
 <div ng-view></div>

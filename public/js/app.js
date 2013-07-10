@@ -8,5 +8,6 @@ angular.module('myApp', ['myApp.filters', 'myApp.services', 'myApp.directives', 
 //		    .when('/patterns', {templateUrl: 'partials/patterns.html', controller: 'PatternController'})
 		    .when('/documents', {templateUrl: 'partials/documents.html', controller: 'DocumentController'})
 			.when('/search', {templateUrl: 'partials/search.html', controller: 'SearchController'})
+			.when('/chart', {templateUrl: 'partials/chart.html', controller: 'ChartController'})
 		    .otherwise({redirectTo: '/documents'});
 	}]);

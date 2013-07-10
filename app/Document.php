@@ -17,31 +17,35 @@ class Document extends Rest
 	/** @var int Set in constructor */
 	protected $contextLength;
 
+	/**
+	 * There are several ways to call this using the following parameters:
+	 *
+	 * int id - the internal id of a document
+	 * int page - the 1-based page count for the document
+	 * bool metadata - whether to return the metadata for the document
+	 * int start - where to start while listing documents
+	 * int count - the number of documents to return
+	 *
+	 * get($start,$count) to retrieve a list of documents
+	 *
+	 * get($id) to retrieve info for a single document
+	 *
+	 * get($id,$metadata) to retrieve metadata for a single document
+	 *
+	 * @return array|mixed
+	 */
 	function get(){
 		if (isset($_GET['id'])){
-			$q = <<<EOQ
-SELECT
-	*,
-	(
-		SELECT MAX(page_is_glossary)
-		FROM cross_reference
-		WHERE source_file_id=o.id
-	) AS has_glossary
-	FROM '.$this->table.' AS o WHERE id=:id'
-EOQ;
-
-			$stmt = $this->db->prepare($q);
-			if ($stmt->execute(array('id'=>(int)$_GET['id']))){
-				return $stmt->fetch(PDO::FETCH_ASSOC);
+			$id = $_GET['id'];
+			if (isset($_GET['metadata']) && ($_GET['metadata'] == true || $_GET['metadata'] == 'true')){
+				return $this->getMetadata($id);
 			} else {
-				$err = $stmt->errorInfo();
-				$this->error($err[2]);
+				return $this->getDocument($id);
 			}
 		} else {
 			$start = isset($_GET['start']) ? (int)$_GET['start'] : 0;
-			$count = isset($_GET['count']) ? (int)$_GET['count'] : 15;
-			$stmt = $this->db->query('SELECT * FROM '.$this->table.' LIMIT '.$start.', '.$count);
-			return $stmt->fetchAll(PDO::FETCH_ASSOC);
+			$count = isset($_GET['count']) ? (int)$_GET['count'] : 30;
+			return $this->getDocumentList($start,$count);
 		}
 	}
 
@@ -55,7 +59,7 @@ EOQ;
 			if (is_array($row) && isset($row['maxId']))
 				$maxId = $row['maxId'];
 		}
-		$stmt = $this->db->prepare('INSERT INTO '.$this->table.' (id,filename,doc_id,location) VALUES (:id, :filename, :docId, :location)');
+		$stmt = $this->db->prepare('INSERT INTO '.$this->table.' (id,filename,doc_id,location,num_pages) VALUES (:id, :filename, :docId, :location, :numPages)');
 		if (!isset($_FILES['user_file']) && $_SERVER['CONTENT_LENGTH'] > 0){
 			$maxSize = ini_get('post_max_size');
 			$this->error('Uploaded file exceeds limit of '.$maxSize);
@@ -87,22 +91,22 @@ EOQ;
 					if (!move_uploaded_file($_FILES['user_file']['tmp_name'][$index],$newName))
 						$this->error('File upload of "'.$filename.'" failed');
 					else {
-						if (!$stmt->execute(array('id'=>$maxId,'filename'=>$filename,'docId'=>$pubName,'location'=>$newName))){
+						$numPages = 1;
+						switch ($extension){
+							case 'pdf':
+								if (!$this->parsePdf($newName,$maxId,$numPages))
+									$this->error('Unable to extract text of '.$filename.'.');
+								break;
+							case 'txt':
+								$txtFilename = $this->documentTextDirectory.$maxId.'.txt';
+								if (!copy($newName,$txtFilename))
+									$this->error('Unable to extract text of '.$filename.'.');
+								break;
+						}
+						if (!$stmt->execute(array('id'=>$maxId,'filename'=>$filename,'docId'=>$pubName,'location'=>$newName,'numPages'=>$numPages))){
 							$err = $stmt->errorInfo();
-							unlink($newName);
+							$this->deleteRelatedFiles($maxId,$newName);
 							$this->error('Unable to save file to database. Error: '.$err[2]);
-						} else {
-							$txtFilename = $this->documentTextDirectory.$maxId.'.txt';
-							switch ($extension){
-								case 'pdf':
-									if (!$this->parsePdf($newName,$maxId))
-										$this->error('Unable to extract text of '.$filename.'.');
-									break;
-								case 'txt':
-									if (!copy($newName,$txtFilename))
-										$this->error('Unable to extract text of '.$filename.'.');
-									break;
-							}
 						}
 					}
 				}
@@ -110,8 +114,53 @@ EOQ;
 		}
 	}
 
+	protected function getDocumentList($start,$count){
+		$q = <<<EOQ
+SELECT
+	id,
+	filename,
+	doc_id,
+	num_pages
+	,(SELECT COUNT(*) FROM cross_reference c JOIN page p ON p.file_id=o.id AND p.page=c.page_number WHERE source_file_id=o.id AND include=1) AS num_references
+FROM $this->table AS o
+LIMIT $start,$count
+EOQ;
+		$stmt = $this->db->query($q);
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
 
-	protected function parsePdf($pdfFilename,$fileId){
+	protected function getDocument($docId){
+		$q = <<<EOQ
+SELECT
+	id,
+	filename,
+	doc_id,
+	num_pages
+	,(SELECT COUNT(*) FROM cross_reference c JOIN page p ON p.file_id=o.id AND p.page=c.page_number WHERE source_file_id=o.id AND include=1) AS num_references
+FROM $this->table AS o
+WHERE id=:id
+EOQ;
+		$stmt = $this->db->prepare($q);
+		if ($stmt->execute(array('id'=>(int)$_GET['id']))){
+			return $stmt->fetch(PDO::FETCH_ASSOC);
+		} else {
+			$err = $stmt->errorInfo();
+			$this->error($err[2]);
+		}
+	}
+
+	protected function getMetadata($docId){
+		$stmt = $this->db->prepare('SELECT * FROM '.$this->metadataTable.' WHERE file_id=:id');
+		if ($stmt->execute(array('id'=>$docId))){
+			return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		} else {
+			$err = $stmt->errorInfo();
+			$this->error($err[2]);
+		}
+	}
+
+
+	protected function parsePdf($pdfFilename,$fileId,&$numPages=null){
 		$metadata = $this->savePdfPages($pdfFilename,$fileId);
 
 		if ($metadata !== false) {
@@ -122,20 +171,25 @@ EOQ;
 			$pageNum = 1;
 			$text = '';
 			$prevPageText = '';
-			$stmt = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`page_number`,`page_is_glossary`,`match_pattern_id`,`matched_text`,`context`,`reference_type`) VALUES (:sourceFileId,:pageNum,:pageIsGlossary,:patternId,:matchedText,:context,:type)');
+			$pageStatement = $this->db->prepare('INSERT INTO `page` (`file_id`,`page`,`include`,`is_glossary`) VALUES (:fileId,:page,:include,:isGlossary)');
+			$crossRefStatement = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`referenced_doc_id`,`page_number`,`matched_text`,`matched_offset`,`context`,`reference_type`) VALUES (:sourceFileId,:referencedFileId,:pageNum,:matchedText,:matchedOffset,:context,:type)');
 			$docHasGlossary = false;
 			$refNumPattern = '/(\d{2,5}([\-\s\.\:]+\d{1,3})?[A-Za-z]?)/us';
-//			$refNumPattern = '/[^\d\-](\d{3,4}([\.\-\s]+\d{1,3})?[A-Za-z]?)[\D]/us';
 			$resultArr = array();
 			while (file_exists($pdfPageFile=$this->documentTextDirectory.$fileId.'_'.$pageNum.'.txt')){
 				if (is_string($text) && mb_strlen($text,'UTF-8')>0)
 					$prevPageText = $text;
 				if (false !== ($text = file_get_contents($pdfPageFile))){
 
-					$text = $this->removeHeadFoot($text);
+					$text = $this->removeHeadFoot($text,$headerLength);
 
 					// search for "glossary"
 					$isInGlossary = ($docHasGlossary || $this->pageReferencesGlossary($text)) ? 2 : 0; // 0 for false, 1 for true, 2 for 'maybe, maybe not - the document has a glossary somewhere!'
+
+					if (!$pageStatement->execute(array('fileId'=>$fileId,'page'=>$pageNum,'include'=>true,'isGlossary'=>$isInGlossary))){
+						$err = $pageStatement->errorInfo();
+						$this->error('Error saving page: '.$err[2]);
+					}
 
 					// Search for references
 					if (false === ($result = preg_match_all($refNumPattern,$text,$matches,PREG_OFFSET_CAPTURE)))
@@ -185,8 +239,6 @@ EOQ;
 								$refDocId = 'Public Law '.$refDocId;
 							// Search for OMB
 							} elseif (preg_match_all('/OMB\)?[\w\s]{1,12}([\d\w\s\-]+\,)*([\d\w]+\-)?'.$matchedText.'/us',$context,$matches2)){
-//							} elseif (preg_match_all('/OMB\)?[\w\s]{1,12}[\d\,\s\-]+(([\w\d]+)\-)?'.$matchedText.'/us',$context,$matches2)){
-//								error_log(print_r($matches2,true));
 								if (mb_strlen($matches2[2][0],'UTF-8')>0)
 									$refDocId = 'OMB '.$matches2[2][0].$refDocId;
 								else
@@ -198,13 +250,18 @@ EOQ;
 							} elseif (preg_match('/NSTISSI.{1,12}'.$matchedText.'\s*([A-Za-z\d]+\-[A-Za-z\d]+)/us',$context,$matches2)){
 								$refDocId = 'NSTISSI '.$refDocId.' '.$matches2[1];
 								// Search for ISO/IEC
-							} elseif (preg_match('/ISO\/IEC '.$matchedText.'/us',$context)){
+							} elseif (preg_match('/ISO\/IEC\s'.$matchedText.'/us',$context)){
 								$refDocId = 'ISO/IEC '.$refDocId;
-							}
+								// Search for ISO
+							} elseif (preg_match('/ISO\s'.$matchedText.'/us',$context)){
+								$refDocId = 'ISO '.$refDocId;
+								// Searh for SAS
+							} elseif (preg_match('/SAS\s'.$matchedText.'/us',$context)){
+								$refDocId = 'SAS '.$refDocId;
+							} else continue; // don't save it if we don't know what it was!
 
-
-							if (!$stmt->execute(array('sourceFileId'=>$fileId,'pageNum'=>$pageNum,'pageIsGlossary'=>$isInGlossary,'patternId'=>0,'matchedText'=>$refDocId,'context'=>$context))){
-								$err = $stmt->errorInfo();
+							if (!$crossRefStatement->execute(array('sourceFileId'=>$fileId,'referencedFileId'=>$refDocId,'pageNum'=>$pageNum,'matchedText'=>$matchedText,'matchedOffset'=>$position,'context'=>$context))){
+								$err = $crossRefStatement->errorInfo();
 								$this->error('Error saving reference: '.$err[2]);
 							}
 						}
@@ -212,6 +269,7 @@ EOQ;
 				}
 				$pageNum++;
 			}
+			$numPages = $pageNum-1;
 
 			return $resultArr;
 		} else {
@@ -309,12 +367,15 @@ EQL;
 	 * @param string $text
 	 * @return string
 	 */
-	protected function removeHeadFoot($text) {
+	protected function removeHeadFoot($text,&$headerLength) {
+		$headerLength = 0;
 		$textArr = mb_split("\n",$text);
 		if (count($textArr)>2 && preg_match('/^\s{3}/',$textArr[0]) && mb_strlen($textArr[1],'UTF-8')+mb_strlen($textArr[2],'UTF-8')==0){
-			array_shift($textArr); // remove the first line
+			$line = array_shift($textArr); // remove the first line
+			$headerLength += mb_strlen($line,'UTF-8')+1;
 			while (mb_strlen($textArr[0],'UTF-8')==0){
-				array_shift($textArr); // remove empty lines following the first
+				$line = array_shift($textArr); // remove empty lines following the first
+				$headerLength += mb_strlen($line,'UTF-8')+1;
 			}
 		}
 		while (mb_strlen($textArr[count($textArr)-1],'UTF-8')==0){
@@ -353,13 +414,7 @@ EQL;
 				$location = $row['location'];
 				$stmt = $this->db->prepare('DELETE FROM '.$this->table.' WHERE id=:id');
 				if ($stmt->execute(array('id'=>$id))){
-					if (!unlink($location)) $this->error('Failed to delete file');
-					$i=1;
-					while (file_exists($filename=$this->documentTextDirectory.$id.'_'.$i.'.txt')){
-						if (!unlink($filename)) $this->error('Failed to delete text cache for page '.$i.'. Stopping.');
-						$i++;
-					}
-					return 'Deleted item '.$id;
+					return $this->deleteRelatedFiles($id,$location);
 				} else {
 					$err = $stmt->errorInfo();
 					$this->error('Delete failed with error: '.$err[2]);
@@ -368,15 +423,27 @@ EQL;
 		}
 	}
 
+	protected function deleteRelatedFiles($id,$location){
+		if (!unlink($location)) $this->error('Failed to delete file');
+		$i=1;
+		while (file_exists($filename=$this->documentTextDirectory.$id.'_'.$i.'.txt')){
+			if (!unlink($filename)) $this->error('Failed to delete text cache for page '.$i.'. Stopping.');
+			$i++;
+		}
+		return 'Deleted item '.$id;
+	}
+
 	/**
 	 * @var PDO
 	 */
 	protected $db;
+	protected $metadataTable;
 
 	function __construct(){
 		global $db;
 		$this->db = $db;
 		$this->table = 'file';
+		$this->metadataTable = 'metadata';
 		$this->allowedExtensions = array('pdf');
 		$this->cacheDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR;
 		$this->documentDirectory = Config::$cacheDirectory.DIRECTORY_SEPARATOR.Config::$documentCacheFolder.DIRECTORY_SEPARATOR;

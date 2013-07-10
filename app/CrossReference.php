@@ -6,38 +6,53 @@ class CrossReference extends Rest {
 	protected $table = 'cross_reference';
 
 	function get(){
-		if (isset($_GET['id'])){
-			$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE id=:id');
-			if ($stmt->execute(array('id'=>(int)$_GET['id']))){
-				return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		if (isset($_GET['summary']) && $_GET['summary']==true){
+			$q = <<<EOS
+SELECT
+	f.doc_id AS source,
+	cr.referenced_file_id AS reference,
+	COUNT(*) AS count
+FROM
+	cross_reference cr
+	JOIN file f ON cr.source_file_id = f.id
+WHERE
+	cr.referenced_file_id <> f.doc_id
+GROUP BY
+	f.doc_id,
+	cr.referenced_file_id
+ORDER BY
+	f.doc_id,
+	cr.referenced_file_id
+EOS;
+			$stmt = $this->db->prepare($q);
+			$params = null;
+		} elseif (isset($_GET['id'])){
+			if (isset($_GET['page'])){
+				$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE id=:id AND page_number=:page');
+				$params = array('id'=>(int)$_GET['id'],'page'=>(int)$_GET['page']);
 			} else {
-				$err = $stmt->errorInfo();
-				$this->error($err[2]);
+				$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE id=:id');
+				$params = array('id'=>(int)$_GET['id']);
 			}
 		} elseif (isset($_GET['file_id'])) {
-			$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE source_file_id=:file_id');
-			if ($stmt->execute(array('file_id'=>(int)$_GET['file_id']))) {
-				return $stmt->fetchAll(PDO::FETCH_ASSOC);
+			if (isset($_GET['page'])){
+				$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE source_file_id=:file_id AND page_number=:page');
+				$params = array('file_id'=>(int)$_GET['file_id'],'page'=>(int)$_GET['page']);
 			} else {
-				$err = $stmt->errorInfo();
-				$this->error($err[2]);
-			}
-		} elseif (isset($_GET['pattern_id'])) {
-//			$stmt = $this->db->prepare('SELECT * FROM '.$this->table);
-//			$stmt->execute();
-//			return $stmt->fetchAll(PDO::FETCH_ASSOC);
-			$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE match_pattern_id=:pattern_id');
-			if ($stmt->execute(array('pattern_id'=>(int)$_GET['pattern_id']))) {
-				return $stmt->fetchAll(PDO::FETCH_ASSOC);
-			} else {
-				$err = $stmt->errorInfo();
-				$this->error($err[2]);
+				$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE source_file_id=:file_id');
+				$params = array('file_id'=>(int)$_GET['file_id']);
 			}
 		} else {
 			$start = isset($_GET['start']) ? (int)$_GET['start'] : 0;
 			$count = isset($_GET['count']) ? (int)$_GET['count'] : 15;
 			$stmt = $this->db->query('SELECT * FROM '.$this->table.' LIMIT '.$start.', '.$count);
+			$params = null;
+		}
+		if ($stmt->execute($params)){
 			return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		} else {
+			$err = $stmt->errorInfo();
+			$this->error($err[2]);
 		}
 	}
 

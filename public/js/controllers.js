@@ -4,33 +4,7 @@
 
 angular.module('myApp.controllers', [])
 
-	.controller('PatternController', ['$scope','Pattern',function($scope,Pattern) {
-		$scope.refreshList = function(){
-			$scope.patterns = Pattern.query();
-			$scope.newPattern = new Pattern();
-		}
-
-		$scope.saveNewPattern = function(){
-			$scope.newPattern.$save(
-				function(){
-					$scope.errors = false;
-					$scope.refreshList();
-				},
-				function(response){
-					$scope.errors = response.data.errors;
-					console.log($scope.errors);
-				}
-			)
-		}
-
-		$scope.deletePattern = function(item){
-			item.$delete({id:item.id},function(){$scope.refreshList()});
-		}
-
-		$scope.refreshList();
-	}])
-
-	.controller('DocumentController', ['$scope','$rootScope','Document','Name',function($scope,$rootScope,Document,Name) {
+	.controller('DocumentController', ['$scope','$rootScope','Document','Page','CrossReference',function($scope,$rootScope,Document,Page,CrossReference) {
 
 		// Event listener for file upload
 		$scope.$on('uploadComplete',function(event){
@@ -40,44 +14,28 @@ angular.module('myApp.controllers', [])
 		$scope.refreshList = function(){
 			$scope.documents = Document.query(function(){
 				for (var i=0; i<$scope.documents.length; i++){
-					$scope.refreshNames($scope.documents[i]);
-//					$scope.documents[i].names = Name.query({file_id:$scope.documents[i].id});
-//					$scope.documents[i].newName = new Name();
-//					$scope.documents[i].newName.file_id = $scope.documents[i].id;
+					$scope.documents[i].pages = Page.query({file_id:$scope.documents[i].id});
+					$scope.documents[i].detailsVisible = false;
 				}
 			});
 			$scope.selectDocument();
-		}
-
-		$scope.refreshNames = function(document){
-			document.names = Name.query({file_id:document.id});
-			document.newName = new Name();
-			document.newName.file_id = document.id;
-		}
-
-		$scope.saveName = function(name){
-			var document;
-			for (var i=0; i<$scope.documents.length; i++){
-				if ($scope.documents[i].id == name.file_id) {
-					document = $scope.documents[i];
-					break;
-				}
-			}
-			name.$save(function(){$scope.refreshNames(document)});
 		}
 
 		$scope.selectedDocument = null;
 
 		$scope.selectDocument = function(document){
 			if (document != null && typeof document !== 'undefined'){
-				if ($scope.selectedDocument == document.id)
+				if ($scope.selectedDocument == document.id){
 					$scope.selectedDocument = null; // toggle
-				else
+					$scope.documentDetails = null;
+				}
+				else{
 					$scope.selectedDocument = document.id;
+					$scope.documentDetails = Document.query({id:document.id,metadata:true});
+				}
 			} else {
 				$scope.selectedDocument = null;
 			}
-			$rootScope.$broadcast('selectDocument',{id:$scope.selectedDocument});
 		}
 
 		$scope.deleteName = function(name){
@@ -87,9 +45,6 @@ angular.module('myApp.controllers', [])
 		$scope.setFile = function(element){
 			$scope.$apply(function($scope){
 				$scope.files = [];
-//				for (var $i=0; $i<element.files.length; $i++){
-//					console.log(element.files[$i]);
-//				}
 			})
 		}
 
@@ -97,52 +52,66 @@ angular.module('myApp.controllers', [])
 			item.$delete({id:item.id},function(){$scope.refreshList()});
 		}
 
+		$scope.togglePage = function(document,page){
+			console.log(page);
+			page.include = !page.include;
+			page.$save();
+			if (page.include)
+				document.num_references -= -page.num_references;
+			else
+				document.num_references -= page.num_references;
+		}
+
+		function selectPage(document,pageNumber){
+			var pageDetail = Page.query({file_id:document.id,page:pageNumber},function(){
+				$scope.selectedPage = pageDetail[0];
+				$scope.selectedPage.numReferences = document.pages[pageNumber-1].num_references;
+				$scope.selectedPage.document = document;
+			});
+		}
+
+		$scope.viewPage = function(document,page,$event){
+			$event.stopPropagation();
+			if (document != null && typeof document !== 'undefined' && page != null && typeof page !== 'undefined'){
+				selectPage(document,page.page);
+			} else {
+				$scope.selectedPage = null;
+			}
+		}
+
+		$scope.firstPage = function(){
+			selectPage($scope.selectedPage.document,1);
+		}
+
+		$scope.prevPage = function(){
+			if ($scope.selectedPage.page > 1){
+				selectPage($scope.selectedPage.document,$scope.selectedPage.page-1);
+			}
+		}
+
+		$scope.nextPage = function(){
+			if ($scope.selectedPage.page < $scope.documents[$scope.selectedPage.file_id].num_pages-0){
+				var newPageNumber = $scope.selectedPage.page-(-1);
+				selectPage($scope.selectedPage.document,newPageNumber);
+			}
+		}
+
+		$scope.lastPage = function(){
+			var newPageNumber = $scope.documents[$scope.selectedPage.file_id].num_pages;
+			selectPage($scope.selectedPage.document,newPageNumber);
+		}
+
 		$scope.refreshList();
 	}])
 
-	.controller('DocumentDetailController',['$scope','$rootScope','DocumentDetail',function($scope,$rootScope,DocumentDetail){
-		$scope.$on('selectDocument',function(event,args){
-			if (args.id != null){
-				$scope.documentDetails = DocumentDetail.query({file_id:args.id});
-			} else {
-				$scope.documentDetails = null;
-			}
-		});
-	}])
-
-	.controller('SearchController',['$scope','$q','Document','Pattern','CrossReference',function($scope,$q,Document,Pattern,CrossReference){
-
-		$scope.patterns = Pattern.query();
+	.controller('SearchController',['$scope','$q','Document','CrossReference',function($scope,$q,Document,CrossReference){
 		$scope.documents = Document.query();
-//		$scope.crossReferences = CrossReference.query();
-
 		$scope.deleteReference = function(reference){
 			reference.$delete({id:reference.id},function(){$scope.crossReferences = CrossReference.query({pattern_id:$scope.selectedPattern.id})});
 		}
-
-		$scope.$watch('selectedPattern',function(id){
-			console.log('selectedPattern listener');
-			$scope.crossReferences = CrossReference.query({pattern_id:id});
-		});
-
-		$scope.beginSearch = function(docs,pattern){
-			var currentDocIndex = -1;
-//			var cr = new CrossReference();
-//			cr.$search({file_id:docs[0],pattern_id:pattern});
-			var doNext = function(){
-				currentDocIndex++;
-				var currentDocId = docs[currentDocIndex];
-				if (currentDocIndex < docs.length){
-					var cr = new CrossReference();
-					cr.$save({file_id:currentDocId,pattern_id:pattern},doNext);
-				}
-				else {
-					console.log('here');
-					$scope.$emit('selectedPattern',$scope.selectedPattern.id);
-				}
-//					$scope.crossReferences = CrossReference.query({pattern_id:pattern});
-			}
-			doNext();
-		}
+		$scope.crossReferences = CrossReference.query();
+	}])
+	.controller('ChartController',['$scope','$q','CrossReference',function($scope,$q,CrossReference){
+		$scope.crossReferences = CrossReference.query({summary:true});
 	}])
 ;

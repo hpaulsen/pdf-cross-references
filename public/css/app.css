@@ -58,3 +58,22 @@ span.btnDelete:hover {
 	font-weight: bold;
 	cursor: pointer;
 }
+
+.select-list {
+	display: inline-block;
+	background-color: #ffffff;
+	font-weight: bold;
+	border: 1px solid #8699a4;
+	margin: 2px;
+	padding: 2px;
+}
+
+.select-list.selected {
+	background-color: #dddddd;
+	border: 2px solid #000000;
+	font-weight: normal;
+}
+
+pre {
+	font-size: 0.65em;
+}

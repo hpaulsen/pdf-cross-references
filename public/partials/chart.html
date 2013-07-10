@@ -1,0 +1,33 @@
+<h2>Chart</h2>
+<div>
+	<h3>Current matches ({{crossReferences.length}} total)</h3>
+	<div>
+
+	</div>
+	<div style="height: 600px; overflow:scroll">
+		<table ng-show="crossReferences.length > 0">
+			<thead>
+			<tr>
+				<th>Document</th>
+				<th>Page</th>
+				<th>Reference</th>
+				<th>Context</th>
+				<th></th>
+			</tr>
+			</thead>
+			<tbody>
+			<tr ng-repeat="crossReference in crossReferences">
+				<td>{{crossReference.source_file_id|document:documents}}</td>
+				<td>{{crossReference.page_number}}</td>
+				<td>{{crossReference.matched_text}}</td>
+				<td>{{crossReference.context}}</td>
+				<td><button class="ui-icon ui-icon-close" ng-click="deleteReference(crossReference)">Delete</button></td>
+			</tr>
+			</tbody>
+		</table>
+		<div ng-hide="crossReferences.length > 0" style="font-style:italic">No references found.</div>
+	</div>
+	<a id=""
+</div>
+
+</div>

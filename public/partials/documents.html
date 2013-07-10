@@ -7,6 +7,7 @@
 			<th>Action</th>
 			<th>Doc ID</th>
 			<th>File</th>
+			<th>Pages/References</th>
 		</tr>
 		</thead>
 		<tfoot>
@@ -14,7 +15,7 @@
 			<td>Upload new</td>
 			<td>
 				<form id="documentForm" action="document.php" method="POST">
-					<input type="file" multiple file-upload>
+					<input type="file" multiple nist-file-upload>
 				</form>
 			</td>
 			<td></td>
@@ -24,11 +25,29 @@
 		<tr ng-hide="documents.length > 0"><td colspan="3"><em>No items to display</em></td></tr>
 		<tr ng-repeat="item in documents">
 			<td>
-				<button ng-click="deleteDocument(item)">Remove</button>
-				<button ng-click="selectDocument(item)" ng-help>Details</button>
+				<button ng-click="deleteDocument(item)" nist-button="ui-icon-circle-close">Remove</button>
 			</td>
-			<td>{{item.doc_id}} {{item.has_glossary}}</td>
+			<td>
+				<button ng-click="selectDocument(item)" nist-button="ui-icon-info">Details</button>
+				{{item.doc_id}}
+			</td>
 			<td><a href="serveDocument.php?id={{item.id}}" target="_blank">{{item.filename}}</a></td>
+			<td>
+				<div>
+					{{item.num_pages}} pages, {{item.num_references}} references
+					<button ng-click="item.detailsVisible=true" ng-hide="item.detailsVisible" nist-button="ui-icon-circle-triangle-e">Expand</button>
+					<button ng-click="item.detailsVisible=false" ng-show="item.detailsVisible" nist-button="ui-icon-circle-triangle-s">Close</button>
+				</div>
+				<div ng-show="item.detailsVisible">
+					Click on a page to select/deselect it
+				</div>
+				<div ng-show="item.detailsVisible">
+					<div ng-click="togglePage(item,page)" ng-class="{selected:page.include}" class="select-list" ng-repeat="page in item.pages">
+						Page {{page.page}} ({{page.num_references}})
+						<button ng-click="viewPage(item,page,$event)" nist-button="ui-icon-circle-zoomin">View</button>
+					</div>
+				</div>
+			</td>
 		</tr>
 		</tbody>
 	</table>
@@ -36,7 +55,7 @@
 <div ng-show="errors">
 	<p class="error" ng-repeat="error in errors">{{error.message}}</p>
 </div>
-<div id="documentDetailPopup" ng-detail-dialog="selectedDocument" ng-controller="DocumentDetailController" ng-show="selectedDocument != null">
+<div title="Document details" id="documentDetailPopup" nist-dialog="selectedDocument" nist-dialog-width="50%" nist-dialog-height="80%" ng-show="selectedDocument != null">
 	<table>
 		<thead>
 		<tr>
@@ -51,4 +70,14 @@
 		</tr>
 		</tbody>
 	</table>
+</div>
+<div title="Document text" nist-dialog="selectedPage" nist-dialog-width="700" nist-dialog-height="80%" ng-show="pageText != null">
+	<div>
+		<button ng-click="firstPage()" nist-button="ui-icon-seek-first">First
+		</button><button ng-click="prevPage()" nist-button="ui-icon-seek-prev">Back
+		</button><button ng-click="nextPage()" nist-button="ui-icon-seek-next">Next
+		</button><button ng-click="lastPage()" nist-button="ui-icon-seek-end">Last</button>
+		<span>Page {{selectedPage.page}} of {{selectedPage.document.num_pages}} ({{selectedPage.numReferences}} references)</span>
+	</div>
+	<pre style="overflow:scroll;height:80%;background-color:white">{{selectedPage.text}}</pre>
 </div>

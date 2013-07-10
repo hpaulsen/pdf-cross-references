@@ -5,7 +5,7 @@
 
 angular.module('myApp.directives', [])
 
-	.directive('ngFocus', ['$parse', function($parse) {
+	.directive('nistFocus', ['$parse', function($parse) {
 		return function(scope, element, attr) {
 			var fn = $parse(attr['ngFocus']);
 			element.bind('focus', function(event) {
@@ -16,7 +16,7 @@ angular.module('myApp.directives', [])
 		}
 	}])
 
-	.directive('ngBlur', ['$parse', function($parse) {
+	.directive('nistBlur', ['$parse', function($parse) {
 		return function(scope, element, attr) {
 			var fn = $parse(attr['ngBlur']);
 			element.bind('blur', function(event) {
@@ -27,7 +27,7 @@ angular.module('myApp.directives', [])
 		}
 	}])
 
-	.directive('ngEnter', ['$parse', function($parse) {
+	.directive('nistEnter', ['$parse', function($parse) {
 		return function(scope, element, attr) {
 			var fn = $parse(attr['ngEnter']);
 			element.bind("keydown keypress", function(event) {
@@ -41,44 +41,133 @@ angular.module('myApp.directives', [])
 		};
 	}])
 
-	.directive('ngHelp', function(){
-		return function(scope, element, attrs){
-			$(element).button({
-				icons: {
-					primary: "ui-icon-note"
-				},
-				text: false
-			});
-		}
-	})
+//	.directive('ngHelp', function(){
+//		return function(scope, element, attrs){
+//			$(element).button({
+//				icons: {
+//					primary: "ui-icon-note"
+//				},
+//				text: false
+//			});
+//		}
+//	})
 
-	.directive('ngButton',function(){
+//	.directive('ngClose', function(){
+//		return function(scope,element,attrs){
+//			$(element).button({
+//				icons: {
+//					primary: "ui-icon-close"
+//				},
+//				text: false
+//			});
+//		}
+//	})
+//
+	.directive('nistButton',function(){
 		return function(scope, element, attrs){
 			$(element).button({
 				icons: {
-					primary: attrs.ngButton
+					primary: attrs.nistButton
 				},
 				text: false
 			})
 		}
 	})
 
-	.directive('ngDetailDialog',function(){
+	.directive('nistDialog',function(){
+		return {
+			link: function(scope,element,attrs){
+				scope.$watch(attrs.nistDialog,function(newValue,oldValue){
+					if (newValue == null || typeof newValue == 'undefined')
+						$(element).dialog('close');
+					else
+						$(element).dialog('open');
+				});
+				if (typeof attrs.nistDialogWidth !== 'undefined'){
+					var p, width=200,height=200;
+					if (typeof attrs.nistDialogHeight !== 'undefined'){
+						if (attrs.nistDialogHeight.indexOf('%')>=0){
+							p = attrs.nistDialogHeight.replace('%','');
+							height = p/100*window.innerHeight;
+						} else {
+							height = attrs.nistDialogHeight;
+						}
+					}
+					if (typeof attrs.nistDialogWidth !== 'undefined'){
+						if (attrs.nistDialogWidth.indexOf('%')>=0){
+							p = attrs.nistDialogWidth.replace('%','');
+							width = p/100*window.innerWidth;
+						} else {
+							width = attrs.nistDialogWidth;
+						}
+					}
+				}
+				$(element).dialog({
+					autoOpen: false,
+					width:width,
+					height:height
+				});
+			}
+		};
+
 		return function(scope, element, attrs){
-			$(element).dialog();
-			scope.$watch('selectedDocument',function(newValue,oldValue){
+
+			scope.$watch(attrs.nistDialog,function(newValue,oldValue){
 				if (newValue == null || typeof newValue == 'undefined')
 					$(element).dialog('close');
 				else
 					$(element).dialog('open');
 			});
+			if (typeof attrs.nistDialogWidth !== 'undefined'){
+				var p, width=200,height=200;
+				if (typeof attrs.nistDialogHeight !== 'undefined'){
+					if (attrs.nistDialogHeight.indexOf('%')>=0){
+						p = attrs.nistDialogHeight.replace('%','');
+						height = p/100*window.innerHeight;
+					} else {
+						height = attrs.nistDialogHeight;
+					}
+				}
+				if (typeof attrs.nistDialogWidth !== 'undefined'){
+					if (attrs.nistDialogWidth.indexOf('%')>=0){
+						p = attrs.nistDialogWidth.replace('%','');
+						width = p/100*window.innerWidth;
+					} else {
+						width = attrs.nistDialogWidth;
+					}
+				}
+			}
 			$(element).dialog({
-				autoOpen: false
+				autoOpen: false,
+				width:width,
+				height:height
 			});
 		}
 	})
 
-	.directive('fileUpload', function() {
+//	.directive('nistSelectable',function(){
+//		return function(scope,element,attrs){
+//			console.log(element);
+//
+//			$.each(element,function(){
+//				$.each(this.children,function(){
+//
+//				});
+//			});
+//			$(element).selectable({
+//				stop:function(event,ui){
+//					var selected = element.find('.ui-selected').map(function(){
+//						var i = $(this).index();
+//						return {name:scope.items[i].name,index:i}
+//					}).get();
+//					$scope.selectedPages = selected;
+//					scope.$apply();
+//				}
+//			});
+//		}
+//	})
+
+	.directive('nistFileUpload', function() {
 	return function(scope, element, attrs) {
 		$(element).wrap('<div></div>');
 		var $progressDiv = $('<div></div>').addClass('progress_report');
