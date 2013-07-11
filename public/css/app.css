@@ -77,3 +77,16 @@ span.btnDelete:hover {
 pre {
 	font-size: 0.65em;
 }
+
+
+div#sigma {
+	float: left;
+	width: 600px;
+	height: 400px;
+	background-color: #1c94c4;
+	border: 1px solid #0d3349;
+}
+
+div.filter {
+	margin: 10px;
+}

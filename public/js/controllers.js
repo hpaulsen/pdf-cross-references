@@ -146,5 +146,101 @@ angular.module('myApp.controllers', [])
 	}])
 	.controller('ChartController',['$scope','$q','CrossReference',function($scope,$q,CrossReference){
 		$scope.crossReferences = CrossReference.query({summary:true});
+
+		$scope.gexf = CrossReference.gexf();
+
+		$scope.filtersVisible = false;
+
+		$scope.toggleFilters = function(){
+			$scope.filtersVisible = !$scope.filtersVisible;
+		}
+
+		var filters = [];
+
+		$scope.toggleFilterItem = function(docType,$event){
+			if ($event.toElement.nodeName == 'LABEL') return; // ignore
+			if (filters.indexOf(docType)>=0)
+				filters.splice(filters.indexOf(docType),1);
+			else
+				filters.push(docType);
+		}
+
+		var getNodeDocType = function(n){
+			var type='';
+			for (var i=0; i< n.attr.attributes.length; i++){
+				if (n.attr.attributes[i].attr=='doc_type'){
+					type = n.attr.attributes[i].val;
+				}
+			}
+			return type;
+		}
+		var nodeShouldBeVisible = function(n){
+			if (filters.length==0) return true;
+			var type = getNodeDocType(n);
+			return filters.indexOf(type)>=0;
+		}
+
+		$scope.refreshFilter = function(){
+			sigInst.iterNodes(function(n){
+				if (nodeShouldBeVisible(n)){
+					n.hidden=0;
+				} else {
+					n.hidden=1;
+				}
+			}).draw();
+		}
+		$scope.types = CrossReference.query({types:true});
+
+		// Instanciate sigma.js and customize rendering :
+		var sigInst = sigma.init(document.getElementById('sigma')).drawingProperties({
+			defaultLabelColor: '#fff',
+			defaultLabelSize: 14,
+			defaultLabelBGColor: '#fff',
+			defaultLabelHoverColor: '#000',
+			labelThreshold: 6,
+			defaultEdgeType: 'curve'
+		}).graphProperties({
+				minNodeSize: 0.5,
+				maxNodeSize: 5,
+				minEdgeSize: 1,
+				maxEdgeSize: 1
+			}).mouseProperties({
+				maxRatio: 4
+			});
+
+		// Parse a GEXF encoded file to fill the graph
+		// (requires "sigma.parseGexf.js" to be included)
+		sigInst.parseGexf('/cross_reference.php?gexf=true');
+
+		// Bind events :
+		sigInst.bind('overnodes',function(event){
+			var nodes = event.content;
+			var neighbors = {};
+			sigInst.iterEdges(function(e){
+				if(nodes.indexOf(e.source)>=0 || nodes.indexOf(e.target)>=0){
+					neighbors[e.source] = 1;
+					neighbors[e.target] = 1;
+				}
+			}).iterNodes(function(n){
+					if(!neighbors[n.id]){
+						n.hidden = 1;
+					}else{
+						if (nodeShouldBeVisible(n))
+							n.hidden = 0;
+						else
+							n.hidden = 1;
+					}
+				}).draw(2,2,2);
+			}).bind('outnodes',function(){
+				sigInst.iterEdges(function(e){
+					e.hidden = 0;
+				}).iterNodes(function(n){
+					if (nodeShouldBeVisible(n))
+						n.hidden = 0;
+				}).draw(2,2,2);
+			});
+
+		// Draw the graph :
+		sigInst.draw();
 	}])
 ;

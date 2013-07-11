@@ -29,6 +29,13 @@ ORDER BY
 EOS;
 			$stmt = $this->db->prepare($q);
 			$params = null;
+		} elseif (isset($_GET['gexf']) && $_GET['gexf']==true){
+			header('Content-Type: text/xml; charset=utf-8');
+			echo $this->getGexf();
+			exit;
+		} elseif (isset($_GET['types']) && $_GET['types']==true){
+			$stmt = $this->db->prepare('SELECT doc_type AS type FROM file UNION SELECT referenced_file_type AS type FROM cross_reference ORDER BY type');
+			$params = null;
 		} elseif (isset($_GET['id'])){
 			if (isset($_GET['page'])){
 				$stmt = $this->db->prepare('SELECT * FROM '.$this->table.' WHERE id=:id AND page_number=:page');
@@ -163,10 +170,153 @@ EOS;
 		return $row['pattern'];
 	}
 
+	protected function getGexf(){
+
+		$date = date('Y-m-d');
+		$doc = <<<EOS
+<?xml version="1.0" encoding="UTF-8"?>
+<gexf xmlns="http://www.gexf.net/1.2draft" version="1.2" xmlns:viz="http://www.gephi.org/gexf/viz">
+	<meta lastmodifieddate="$date">
+		<creator>nistpdf</creator>
+		<description>Cross Reference Analysis</description>
+	</meta>
+	<attributes class="node" mode="static">
+		<attribute id="strength" title="Strength" type="integer"/>
+		<attribute id="doc_type" title="Type" type="string"/>
+	</attributes>
+	<graph mode="static" defaultedgetype="directed">
+		<nodes>
+		{{nodes_here}}
+		</nodes>
+		<edges>
+		{{edges_here}}
+		</edges>
+	</graph>
+</gexf>
+EOS;
+		// Check filters
+		$restrict = '';
+		if (isset($_GET['restrict']) && $_GET['restrict'] !== ''){
+			$restrict = preg_replace('/[^\d\w\,]/','',$_GET['restrict']);
+			$arr = explode(',',$_GET['restrict']);
+			$restrict = "'".implode("','",$arr)."'";
+		}
+
+		$nodes = $this->gexfDocList($restrict);
+		$doc = preg_replace('/\{\{nodes_here\}\}/',$nodes,$doc);
+
+		$references = $this->gexfReferences($restrict);
+		$doc = preg_replace('/\{\{edges_here\}\}/',$references,$doc);
+
+		return $doc;
+	}
+
+	protected $uniqueColors = array(
+		array(0,0,255),
+		array(0,255,0),
+		array(255,0,0),
+		array(0,255,255),
+		array(255,0,255),
+		array(255,255,0),
+		array(255,255,255),
+		array(0,0,192),
+		array(0,192,0),
+		array(192,0,0),
+		array(0,192,192),
+		array(192,0,192),
+		array(192,192,0),
+		array(192,192,192),
+	);
+
+	protected function gexfDocList($restrict){
+		$restrict1 = ''; $restrict2 = '';
+		if ($restrict != ''){
+			$restrict1 = 'WHERE doc_type IN ('.$restrict.')';
+			$restrict2 = 'WHERE referenced_file_type IN ('.$restrict.')';
+		}
+		$q = <<<EOS
+SELECT doc_id AS doc, doc_type AS type FROM file $restrict1
+UNION
+SELECT referenced_file_id AS doc, referenced_file_type AS type FROM cross_reference $restrict2
+ORDER BY doc
+EOS;
+		$stmt = $this->db->prepare($q);
+		if (!$stmt->execute()){
+			$err = $stmt->errorInfo();
+			$this->error($err[2]);
+		}
+		$result = '';
+		$typeColors = array();
+		while (false !== ($row = $stmt->fetch(PDO::FETCH_ASSOC))){
+			$id = $row['doc'];
+			$type = $row['type'];
+			if (!isset($typeColors[$type])){
+				$typeColors[$type] = $this->uniqueColors[count($typeColors)];
+			}
+			$r = $typeColors[$type][0];
+			$g = $typeColors[$type][1];
+			$b = $typeColors[$type][2];
+			$result .= <<<EOS
+<node id="$id" label="$id">
+	<viz:color r="$r" g="$g" b="$b"/>
+	<attvalues>
+		<attvalue for="doc_type" value="$type"/>
+	</attvalues>
+</node>
+EOS;
+		}
+		return $result;
+	}
+
+	protected function gexfReferences($restrict){
+		if ($restrict != ''){
+			$restrict = 'AND f.doc_type IN ('.$restrict.') AND cr.referenced_file_type IN ('.$restrict.')';
+		}
+		$q = <<<EOS
+SELECT
+	f.doc_id AS source,
+	cr.referenced_file_id AS reference,
+	COUNT(*) AS count
+FROM
+	cross_reference cr
+	JOIN file f ON cr.source_file_id = f.id
+WHERE
+	cr.referenced_file_id <> f.doc_id $restrict
+GROUP BY
+	f.doc_id,
+	cr.referenced_file_id
+ORDER BY
+	f.doc_id,
+	cr.referenced_file_id
+EOS;
+		$stmt = $this->db->prepare($q);
+		if (!$stmt->execute()){
+			$err = $stmt->errorInfo();
+			$this->error($err[2]);
+		}
+		$result = '';
+		$i=0;
+		while (false !== ($row = $stmt->fetch(PDO::FETCH_ASSOC))){
+			$src = $row['source'];
+			$target = $row['reference'];
+			$strength = $row['count'];
+			$result .= <<<EOS
+<edge id="$i" source="$src" target="$target">
+	<attvalues>
+		<attvalue for="strength" value="$strength"/>
+	</attvalues>
+</edge>
+EOS;
+			$i++;
+		}
+		return $result;
+	}
+
 	protected $db;
 
 	function __construct(){
 		global $db;
 		$this->db = $db;
 	}
+
 }

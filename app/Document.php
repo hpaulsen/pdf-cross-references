@@ -59,7 +59,7 @@ class Document extends Rest
 			if (is_array($row) && isset($row['maxId']))
 				$maxId = $row['maxId'];
 		}
-		$stmt = $this->db->prepare('INSERT INTO '.$this->table.' (id,filename,doc_id,location,num_pages) VALUES (:id, :filename, :docId, :location, :numPages)');
+		$stmt = $this->db->prepare('INSERT INTO '.$this->table.' (id,filename,doc_id,doc_type,location,num_pages) VALUES (:id, :filename, :docId, :docType, :location, :numPages)');
 		if (!isset($_FILES['user_file']) && $_SERVER['CONTENT_LENGTH'] > 0){
 			$maxSize = ini_get('post_max_size');
 			$this->error('Uploaded file exceeds limit of '.$maxSize);
@@ -72,15 +72,19 @@ class Document extends Rest
 			} else {
 				// Try to determine the publication code
 				$pubName = '';
+				$docType = 'other/unknown';
 				if (preg_match('/SP[\s\.]?(\d{3,4}-\d{2,3})/i',$filename,$matches)){
 					// NIST Special Publication
-					$pubName = 'NIST SP '.$matches[1];
+					$docType = 'NIST SP';
+					$pubName = $docType.' '.$matches[1];
 				} elseif (preg_match('/FIPS[^\d]*(\d{2,4}(-\d)?)/i',$filename,$matches)){
 					// FIPS publication
-					$pubName = 'FIPS '.$matches[1];
+					$docType = 'FIPS';
+					$pubName = $docType.' '.$matches[1];
 				} elseif (preg_match('/IR[^\d]*(\d{4})/i',$filename,$matches)){
 					// NIST IR publication
-					$pubName = 'NIST IR '.$matches[1];
+					$docType = 'NIST IR';
+					$pubName = $docType.' '.$matches[1];
 				}
 
 				$maxId++;
@@ -103,7 +107,7 @@ class Document extends Rest
 									$this->error('Unable to extract text of '.$filename.'.');
 								break;
 						}
-						if (!$stmt->execute(array('id'=>$maxId,'filename'=>$filename,'docId'=>$pubName,'location'=>$newName,'numPages'=>$numPages))){
+						if (!$stmt->execute(array('id'=>$maxId,'filename'=>$filename,'docId'=>$pubName,'docType'=>$docType,'location'=>$newName,'numPages'=>$numPages))){
 							$err = $stmt->errorInfo();
 							$this->deleteRelatedFiles($maxId,$newName);
 							$this->error('Unable to save file to database. Error: '.$err[2]);
@@ -172,7 +176,7 @@ EOQ;
 			$text = '';
 			$prevPageText = '';
 			$pageStatement = $this->db->prepare('INSERT INTO `page` (`file_id`,`page`,`include`,`is_glossary`) VALUES (:fileId,:page,:include,:isGlossary)');
-			$crossRefStatement = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`referenced_doc_id`,`page_number`,`matched_text`,`matched_offset`,`context`,`reference_type`) VALUES (:sourceFileId,:referencedFileId,:pageNum,:matchedText,:matchedOffset,:context,:type)');
+			$crossRefStatement = $this->db->prepare('INSERT INTO `cross_reference` (`source_file_id`,`referenced_file_id`,`referenced_file_type`,`page_number`,`matched_text`,`matched_offset`,`context`,`reference_type`) VALUES (:sourceFileId,:referencedFileId,:referencedFileType,:pageNum,:matchedText,:matchedOffset,:context,:type)');
 			$docHasGlossary = false;
 			$refNumPattern = '/(\d{2,5}([\-\s\.\:]+\d{1,3})?[A-Za-z]?)/us';
 			$resultArr = array();
@@ -180,6 +184,7 @@ EOQ;
 				if (is_string($text) && mb_strlen($text,'UTF-8')>0)
 					$prevPageText = $text;
 				if (false !== ($text = file_get_contents($pdfPageFile))){
+					$text = iconv('UTF-8','UTF-8//IGNORE',$text);
 
 					$text = $this->removeHeadFoot($text,$headerLength);
 
@@ -216,6 +221,7 @@ EOQ;
 
 							$refDocId = preg_replace('/\s/','',$matchedText);
 							$refDocIdLength = mb_strlen($refDocId,'UTF-8');
+							$refDocType = 'other/unknown';
 
 							// Search for revision number
 							if (preg_match('/'.$matchedText.'[^\w\w]*[Rr][\w\s,-\.]*([\d]+)/us',$context,$matches2)){
@@ -224,43 +230,54 @@ EOQ;
 
 							// Search for NIST SP
 							if ($refDocIdLength>=5 && preg_match('/\WS(pec(ial)?)?[^\w\d]*P(ub(l(ication(s)?)?)?)?[^\w\d]*([A-C\d\-\,\s])*'.$matchedText.'\W/us',$context)){
-								$refDocId = 'NIST SP '.$refDocId;
+								$refDocType = 'NIST SP';
+								$refDocId = $refDocType.' '.$refDocId;
 							// Search for NIST IR
 							} elseif (preg_match('/IR\s*'.$matchedText.'/us',$context)){
-								$refDocId = 'FIPS '.$refDocId;
+								$refDocType = 'NIST IR';
+								$refDocId = $refDocType.' '.$refDocId;
 							// Search for FIPS
 							} elseif (preg_match('/FIPS\s*(P(ub(lication(s)?)?)?)?[\s\.\-\d\,]*'.$matchedText.'/us',$context)){
-								$refDocId = 'FIPS '.$refDocId;
+								$refDocType = 'FIPS';
+								$refDocId = $refDocType.' '.$refDocId;
 							// Search for IEEE
 							} elseif (preg_match('/IEEE\s*'.$matchedText.'/us',$context)){
-								$refDocId = 'IEEE '.$refDocId;
+								$refDocType = 'IEEE';
+								$refDocId = $refDocType.' '.$refDocId;
 							// Search for Public Law
 							} elseif (preg_match('/Public Law '.$matchedText.'/us',$context)){
-								$refDocId = 'Public Law '.$refDocId;
+								$refDocType = 'Public Law';
+								$refDocId = $refDocType.' '.$refDocId;
 							// Search for OMB
 							} elseif (preg_match_all('/OMB\)?[\w\s]{1,12}([\d\w\s\-]+\,)*([\d\w]+\-)?'.$matchedText.'/us',$context,$matches2)){
+								$refDocType = 'OMB';
 								if (mb_strlen($matches2[2][0],'UTF-8')>0)
-									$refDocId = 'OMB '.$matches2[2][0].$refDocId;
+									$refDocId = $refDocType.' '.$matches2[2][0].$refDocId;
 								else
-									$refDocId = 'OMB '.$refDocId;
+									$refDocId = $refDocType.' '.$refDocId;
 								// Search for GAO
 							} elseif (preg_match('/GAO.{1,12}\-?'.$matchedText.'/us',$context)){
-								$refDocId = 'GAO '.$refDocId;
+								$refDocType = 'GAO';
+								$refDocId = $refDocType.' '.$refDocId;
 								// Search for NSTISSI
 							} elseif (preg_match('/NSTISSI.{1,12}'.$matchedText.'\s*([A-Za-z\d]+\-[A-Za-z\d]+)/us',$context,$matches2)){
-								$refDocId = 'NSTISSI '.$refDocId.' '.$matches2[1];
+								$refDocType = 'NSTISSI';
+								$refDocId = $refDocType.' '.$refDocId.' '.$matches2[1];
 								// Search for ISO/IEC
 							} elseif (preg_match('/ISO\/IEC\s'.$matchedText.'/us',$context)){
-								$refDocId = 'ISO/IEC '.$refDocId;
+								$refDocType = 'ISO/IEC';
+								$refDocId = $refDocType.' '.$refDocId;
 								// Search for ISO
 							} elseif (preg_match('/ISO\s'.$matchedText.'/us',$context)){
-								$refDocId = 'ISO '.$refDocId;
+								$refDocType = 'ISO';
+								$refDocId = $refDocType.' '.$refDocId;
 								// Searh for SAS
 							} elseif (preg_match('/SAS\s'.$matchedText.'/us',$context)){
-								$refDocId = 'SAS '.$refDocId;
+								$refDocType = 'SAS';
+								$refDocId = $refDocType.' '.$refDocId;
 							} else continue; // don't save it if we don't know what it was!
 
-							if (!$crossRefStatement->execute(array('sourceFileId'=>$fileId,'referencedFileId'=>$refDocId,'pageNum'=>$pageNum,'matchedText'=>$matchedText,'matchedOffset'=>$position,'context'=>$context))){
+							if (!$crossRefStatement->execute(array('sourceFileId'=>$fileId,'referencedFileId'=>$refDocId,'referencedFileType'=>$refDocType,'pageNum'=>$pageNum,'matchedText'=>$matchedText,'matchedOffset'=>$position,'context'=>$context))){
 								$err = $crossRefStatement->errorInfo();
 								$this->error('Error saving reference: '.$err[2]);
 							}
@@ -286,8 +303,33 @@ EOQ;
 	 */
 	protected function pageReferencesGlossary($text){
 		$glossaryPattern = '/glossary/usi';
-		if (false === ($result = preg_match_all($glossaryPattern,$text)))
-			$this->error('Error searching for pattern "'.$glossaryPattern.'"');
+		if (false === ($result = preg_match_all($glossaryPattern,$text))){
+			$errText = 'Error searching for pattern "'.$glossaryPattern.'" ';
+			switch (preg_last_error()) {
+				case PREG_NO_ERROR:
+					$errText .= 'No error.';
+					break;
+				case PREG_INTERNAL_ERROR:
+					$errText .= 'Internal error.';
+					break;
+				case PREG_BACKTRACK_LIMIT_ERROR:
+					$errText .= 'Backtrack limit error.';
+					break;
+				case PREG_RECURSION_LIMIT_ERROR:
+					$errText .= 'Recursion limit error.';
+					break;
+				case PREG_BAD_UTF8_ERROR:
+					$errText .= 'Bad UTF8 error.';
+					break;
+				case PREG_BAD_UTF8_OFFSET_ERROR:
+					$errText .= 'Bad UTF8 offset error.';
+					break;
+				default:
+					$errText .= 'Unknown error: "'.preg_last_error().'".';
+			}
+
+			$this->error($errText);
+		}
 		return $result > 0;
 	}
 
@@ -378,7 +420,7 @@ EQL;
 				$headerLength += mb_strlen($line,'UTF-8')+1;
 			}
 		}
-		while (mb_strlen($textArr[count($textArr)-1],'UTF-8')==0){
+		while (count($textArr) > 0 && mb_strlen($textArr[count($textArr)-1],'UTF-8')==0){
 			array_pop($textArr);
 		}
 		$l = count($textArr);

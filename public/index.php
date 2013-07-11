@@ -32,5 +32,7 @@
 <script src="lib/jquery-1.9.1.min.js"></script>
 <script src="lib/jquery-ui-1.10.2.custom/js/jquery-ui-1.10.2.custom.min.js"></script>
 <script src="lib/jquery-html5-upload-master/jquery.html5_upload.js"></script>
+<script src="lib/sigma/sigma.min.js"></script>
+<script src="lib/sigma/sigma.parseGexf.js"></script>
 </body>
 </html>

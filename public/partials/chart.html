@@ -1,27 +1,31 @@
 <h2>Chart</h2>
 <div>
 	<h3>Current matches ({{crossReferences.length}} total)</h3>
-	<div>
-
+	<div class="filter">
+		<div>
+			<button ng-click="toggleFilters()" nist-button="ui-icon-gear">Expand</button>
+		</div>
+		<div ng-show="filtersVisible">
+			<label ng-repeat="type in types" ng-click="toggleFilterItem(type.type,$event)"><input type="checkbox"/> {{type.type}}</label>
+			<div><button ng-click="refreshFilter()">Refresh</button></div>
+		</div>
+		<div><a href="cross_reference.php?gexf=true" target="blank">view gexf</a></div>
 	</div>
+	<div id="sigma"></div>
 	<div style="height: 600px; overflow:scroll">
 		<table ng-show="crossReferences.length > 0">
 			<thead>
 			<tr>
-				<th>Document</th>
-				<th>Page</th>
+				<th>Source</th>
 				<th>Reference</th>
-				<th>Context</th>
-				<th></th>
+				<th>Count</th>
 			</tr>
 			</thead>
 			<tbody>
 			<tr ng-repeat="crossReference in crossReferences">
-				<td>{{crossReference.source_file_id|document:documents}}</td>
-				<td>{{crossReference.page_number}}</td>
-				<td>{{crossReference.matched_text}}</td>
-				<td>{{crossReference.context}}</td>
-				<td><button class="ui-icon ui-icon-close" ng-click="deleteReference(crossReference)">Delete</button></td>
+				<td>{{crossReference.source}}</td>
+				<td>{{crossReference.reference}}</td>
+				<td>{{crossReference.count}}</td>
 			</tr>
 			</tbody>
 		</table>

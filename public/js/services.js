@@ -19,7 +19,11 @@ angular.module('myApp.services', ['ngResource'])
 //		return $resource('document_detail.php');
 //	})
 	.factory('CrossReference',function($resource){
-		return $resource('cross_reference.php',{},{search: {method:'POST',isArray:true},count:{method:'GET',params:{metadata:true},isArray:true}})
+		return $resource('cross_reference.php',{},{
+			search:{method:'POST',isArray:true},
+			count:{method:'GET',params:{metadata:true},isArray:true},
+			gexf:{method:'GET',params:{gexf:true},isArray:true}
+		})
 	})
 	.factory('Page',function($resource){
 		return $resource('page.php',{},{save:{method:'PUT'}});
