@@ -303,7 +303,7 @@ EOQ;
 	 */
 	protected function pageReferencesGlossary($text){
 		$glossaryPattern = '/glossary/usi';
-		if (false === ($result = preg_match_all($glossaryPattern,$text))){
+		if (false === ($result = preg_match_all($glossaryPattern,$text,$matches))){
 			$errText = 'Error searching for pattern "'.$glossaryPattern.'" ';
 			switch (preg_last_error()) {
 				case PREG_NO_ERROR:

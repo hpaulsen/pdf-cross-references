@@ -1,6 +1,6 @@
 <?php
 
-require_once '../library/Rest.php';
+require_once Config::$libraryDirectory.DIRECTORY_SEPARATOR.'Rest.php';
 
 class CrossReference extends Rest {
 	protected $table = 'cross_reference';
